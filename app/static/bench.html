@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <title>Bench Workspace · OligoAL</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/bench.css">
+  <script type="module" src="/bench.js"></script>
+</head>
+<body>
+  <header class="top">
+    <span class="brand">Oligo<span>AL</span></span>
+    <span class="top-divider" aria-hidden="true"></span>
+    <span class="product">Bench Workspace</span>
+    <a class="top-link" href="/">ASO design</a>
+  </header>
+  <main>
+    <div class="bench-head">
+      <h1>Bench Workspace</h1>
+      <button id="logout" class="secondary" type="button" hidden>Sign out</button>
+    </div>
+    <p id="bench-status" role="status" aria-live="polite"></p>
+    <section id="login" class="bench-card login" hidden>
+      <h2>Private access</h2>
+      <form id="login-form">
+        <label>Bench access key<input id="key" type="password" autocomplete="current-password" required></label>
+        <button class="primary" type="submit">Sign in</button>
+      </form>
+    </section>
+    <p id="empty" hidden>Run a design and use <a href="/">Send to Bench Workspace</a> to start a project.</p>
+    <div id="bench" hidden>
+      <div class="project-tools">
+        <label>Project<select id="projects"></select></label>
+        <form id="recommend-form">
+          <label>Batch size<input id="batch-size" type="number" min="1" max="20" value="5" required></label>
+          <button class="primary" type="submit">Generate new batch</button>
+        </form>
+      </div>
+      <div class="bench-layout">
+        <section class="bench-card batch-card" aria-label="Batches and candidates">
+          <nav id="batches" aria-label="Batch tabs"></nav>
+          <div class="batch-line">
+            <div><h2 id="batch-title"></h2><p id="batch-context" class="muted"></p></div>
+            <button id="rename" type="button" class="secondary">Rename</button>
+          </div>
+          <form id="rename-form" class="rename-row" hidden>
+            <label>Batch name<input id="batch-name" maxlength="80" required></label>
+            <button class="secondary" type="submit">Save name</button>
+            <button id="rename-cancel" class="secondary" type="button">Cancel</button>
+          </form>
+          <div class="table-scroll">
+            <table aria-label="Batch candidates">
+              <thead><tr><th>ASO 5′–3′</th><th>Site</th><th id="score-heading">Prediction</th><th>Results</th><th>Status</th></tr></thead>
+              <tbody id="candidates"></tbody>
+            </table>
+          </div>
+          <section id="candidate-details" class="candidate-details" hidden>
+            <div class="batch-line">
+              <div><h2 id="selected-sequence"></h2><p id="selected-site" class="muted"></p></div>
+              <button id="add-result" type="button" class="primary">Log a result</button>
+            </div>
+            <dl id="predictions"></dl>
+            <details><summary>HELM</summary><code id="helm"></code></details>
+            <h3>Measured results</h3>
+            <ul id="results" class="list"></ul>
+            <form id="result-form" hidden>
+              <h3 id="editor-title">Log a result</h3>
+              <div class="field-grid">
+                <label>Measurement type<select id="kind"><option value="inhibition">Inhibition</option><option value="dose_response">Dose-response curve</option><option value="ic50">IC₅₀</option><option value="neurotoxicity">Neurotoxicity</option><option value="hepatotoxicity">Hepatotoxicity</option></select></label>
+                <label>Result status<select id="result-status"><option value="measured">Measured</option><option value="failed">Assay failed</option></select></label>
+                <label id="value-field">Observed value<input id="value" type="number" step="any"></label>
+                <label>Units<select id="unit"></select></label>
+                <label id="qualifier-field" hidden>IC₅₀ qualifier<select id="qualifier"><option value="exact">Exact</option><option value="lt">Less than</option><option value="gt">Greater than</option></select></label>
+              </div>
+              <label id="points-field" hidden>Dose-response points (one dose in nM, inhibition in % pair per line)<textarea id="points" rows="4"></textarea></label>
+              <div class="field-grid">
+                <label>Species<input id="species"></label>
+                <label>Cell line<input id="cell-line"></label>
+                <label>Method<input id="method"></label>
+                <label>Route<input id="route"></label>
+                <label>Dose (nM)<input id="dose" type="number" step="any" min="0"></label>
+                <label>Duration (hours)<input id="hours" type="number" step="any" min="0"></label>
+              </div>
+              <label>Assay details<input id="assay-detail" placeholder="e.g. ALT, FOB definition, curve fit or replicate identifier"></label>
+              <label>Result notes<textarea id="result-notes" rows="2" maxlength="3000"></textarea></label>
+              <label class="inline-check"><input id="charge" type="checkbox" checked> Count as one assay</label>
+              <div class="exports"><button class="primary" type="submit">Save result</button><button id="cancel-result" class="secondary" type="button">Cancel</button></div>
+            </form>
+          </section>
+        </section>
+
+        <aside class="bench-card context-card">
+          <h2>Project context</h2>
+          <p id="project-context" class="muted"></p>
+          <p id="budget-status"></p>
+          <form id="settings-form">
+            <label>Assay budget<input id="budget" type="number" min="1" max="100000" required></label>
+            <label>Research notes<textarea id="notes" rows="4" maxlength="12000"></textarea></label>
+            <button class="secondary" type="submit">Save project settings</button>
+          </form>
+          <h3>Recent activity</h3>
+          <ul id="activity" class="list"></ul>
+        </aside>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

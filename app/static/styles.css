@@ -17,6 +17,7 @@ body { margin: 0; }
 .brand span { color: #86dbb1; }
 .top-divider { width: 1px; align-self: stretch; background: #496057; }
 .product { color: #c3d7cd; font-size: 13px; }
+.top-link { margin-left: auto; color: #e3f6ec; font-size: 13px; }
 main { width: min(1320px, calc(100% - 48px)); margin: 37px auto 26px; }
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: clamp(29px, 4vw, 47px); letter-spacing: -.055em; line-height: 1.05; margin-bottom: 23px; }
@@ -73,6 +74,7 @@ canvas:active { cursor: grabbing; }
 .alignment { font: 11px/1.55 var(--mono); color: #233b31; background: #f2f6f4; padding: 8px; border-radius: 5px; overflow-x: auto; margin: 10px 0; }
 .exports { display: flex; gap: 8px; flex-wrap: wrap; }
 .candidate-exports { justify-content: flex-end; }
+.bench-check { width: 15px; height: 15px; accent-color: var(--accent); }
 dl { margin: 7px 0 0; }
 .endpoint { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
 dt { font-weight: 600; }

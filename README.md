@@ -37,6 +37,33 @@ export PYTHONPATH="$PWD/src:$PWD/vendor/OligoGym"
 .venv/bin/python app/server.py --train-policy artifacts/aso-app-policy
 ```
 
+## Bench Workspace
+
+Create a directory with permissions `0700` outside the checkout on a persistent volume. Store
+a randomly generated access key of at least 32 characters in its `access-key`
+file and give the file permissions `0600`. Start the server with the directory
+and the exact URL origin that researchers use to access the workspace.
+
+```sh
+export PYTHONPATH="$PWD/src:$PWD/vendor/OligoGym"
+.venv/bin/python app/server.py --port 8128 \
+  --bench-dir /path/to/private/bench \
+  --bench-origin http://127.0.0.1:8128
+```
+
+For a remote deployment, use the public HTTPS origin. Each workspace has one
+shared access key and stores projects, batches, measurements, correction
+history, and notes in `workspace.sqlite3` in the private directory.
+
+Run a design, select candidates, and click **Send to Bench Workspace**. Record
+assay results and generate the next batch from the imported candidates. Each
+recommendation records the model version and measurement revisions it used.
+The Atlas 20-mer profile adjusts its frozen inhibition predictions with a
+Bayesian linear residual for human HepG2 measurements at 4,500 nM and 24 hours
+with electroporation. Other assay types and conditions remain available in the
+project record. Other design profiles use their original ranks. Generating a
+batch reserves budget slots, and logging a charged assay records the spend.
+
 ## Host the website
 
 The Dockerfile targets Linux x86-64. It starts the API and serves the

@@ -6,13 +6,14 @@
   <title>OligoAL · ASO design</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="styles.css">
-  <script type="module" src="app.js?v=2"></script>
+  <script type="module" src="app.js?v=3"></script>
 </head>
 <body>
   <header class="top">
     <span class="brand">Oligo<span>AL</span></span>
     <span class="top-divider" aria-hidden="true"></span>
     <span class="product">ASO workbench</span>
+    <a id="open-bench" class="top-link" href="/bench" hidden>Bench Workspace</a>
   </header>
 
   <main>
@@ -51,6 +52,7 @@
           <div class="exports candidate-exports">
             <button type="button" id="download" class="secondary">Export shortlist CSV</button>
             <button type="button" id="download-full" class="secondary">Export full CSV</button>
+            <button type="button" id="send-bench" class="secondary" hidden>Send to Bench Workspace</button>
           </div>
         </div>
         <p id="method" class="method"></p>

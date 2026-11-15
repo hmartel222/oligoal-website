@@ -91,7 +91,10 @@ function render() {
     : "No candidates qualified for this run.";
   $("download").disabled = !rows.length;
   $("download-full").disabled = !rows.length;
+  $("send-bench").hidden = !results.bench_run;
+  $("send-bench").disabled = !rows.length;
   const headings = node("tr");
+  if (results.bench_run) headings.append(node("th", "Send"));
   headings.append(...["Rank", "ASO 5′–3′", "Site"].map((label) => node("th", label)));
   for (const [, spec] of columns) {
     const header = node("th", spec.title);
@@ -109,6 +112,21 @@ function render() {
     button.setAttribute("aria-pressed", "false");
     const sequence = node("td");
     sequence.append(button);
+    if (results.bench_run) {
+      const cell = node("td");
+      const checked = node("input");
+      checked.type = "checkbox";
+      checked.className = "bench-check";
+      checked.value = row.candidate_id;
+      checked.checked = true;
+      checked.setAttribute("aria-label", `Send candidate ${index + 1} to Bench`);
+      cell.addEventListener("click", (event) => event.stopPropagation());
+      checked.addEventListener("change", () => {
+        $("send-bench").disabled = !$("results-body").querySelector(".bench-check:checked");
+      });
+      cell.append(checked);
+      tr.append(cell);
+    }
     tr.append(node("td", String(index + 1)), sequence, node("td", site(row)));
     tr.append(...columns.map(([key]) => node("td", formatted(row.predictions[key]))));
     tr.addEventListener("click", () => {
@@ -226,12 +244,25 @@ $("download-full").addEventListener("click", async () => {
   }
 });
 
+$("send-bench").addEventListener("click", () => {
+  const candidates = [...$("results-body").querySelectorAll(".bench-check:checked")]
+    .map((checkbox) => checkbox.value);
+  if (!results?.bench_run || !candidates.length) return;
+  try {
+    sessionStorage.setItem("oligoal-bench-handoff", JSON.stringify({ run: results.bench_run, candidates }));
+    window.location.assign("/bench");
+  } catch {
+    showExportStatus("Enable browser session storage to send candidates to Bench.");
+  }
+});
+
 async function loadProfiles() {
   try {
     const response = await fetch("/api/meta", { cache: "no-store" });
     if (!response.ok) return;
     const meta = await response.json();
     $("atlas-profile").disabled = !meta.atlas_efficacy_configured;
+    $("open-bench").hidden = !meta.bench_configured;
   } catch {
     // The default profiles remain available while metadata is unreachable.
   }

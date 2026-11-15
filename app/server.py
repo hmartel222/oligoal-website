@@ -12,6 +12,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
+from oligo_engine.audit_upstream import PINNED_REVISION
+from oligo_engine.bench import Bench, BenchError
 from oligo_engine.data.catalog import Catalog
 from oligo_engine.design import candidates as design
 from oligo_engine.design.aso_space import (
@@ -25,7 +27,7 @@ from oligo_engine.design.structure import duplex_pdb, pymol_script
 from oligo_engine.design.transcripts import SYMBOL, Transcript, TranscriptError, fetch
 from oligo_engine.reward.oligogym import OligoGymInference
 from oligo_engine.reward.portable import CHEMISTRY as MOE_20
-from oligo_engine.reward.portable import PortableEfficacy
+from oligo_engine.reward.portable import MODEL_SHA256, PortableEfficacy
 from oligo_engine.reward.scoring import (
     AssayProfile,
     EndpointManifest,
@@ -281,11 +283,19 @@ def panel(
                 rows, summary = design_panel(target, deployment_scorer(), policy)
             else:
                 rows, summary = immune_panel(target)
+    model_version = MODEL_SHA256 if chemistry == MOE_20 else identity({
+        "upstream": PINNED_REVISION,
+        "deployment": "oligogym-website-v1",
+        "profile": chemistry,
+        "policy": json.loads((policy / "manifest.json").read_text())["checkpoint_sha256"]
+        if chemistry == MOE and policy else None,
+    })
     return {
         "transcript": transcript.as_dict(),
+        "context_id": target.identity,
         "chemistry": chemistry,
         "design": design.DESIGNS[chemistry],
-        "summary": {**summary, "ranked_count": len(rows)},
+        "summary": {**summary, "ranked_count": len(rows), "model_version": model_version},
         "rows": rows if full else rows[:limit],
         "endpoints": {
             key: {
@@ -377,6 +387,7 @@ def structure(params: dict[str, str]) -> tuple[str, str, str | None]:
 class Handler(SimpleHTTPRequestHandler):
     policy: Path | None = None
     atlas_model: PortableEfficacy | None = None
+    bench: Bench | None = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC), **kwargs)
@@ -387,12 +398,16 @@ class Handler(SimpleHTTPRequestHandler):
         content_type: str = "application/json",
         status: int = 200,
         filename: str | None = None,
+        cookie: str | None = None,
     ) -> None:
         encoded = body.encode()
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(encoded)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
         if filename:
             self.send_header(
                 "Content-Disposition", f'attachment; filename="{filename}"'
@@ -416,6 +431,8 @@ class Handler(SimpleHTTPRequestHandler):
                     )
                 else:
                     payload["csv"] = csv_panel(payload)
+                    if self.bench and payload["rows"]:
+                        payload["bench_run"] = self.bench.draft(payload)
                     self._send(json.dumps(payload, allow_nan=False))
             elif path == "/api/meta":
                 self._send(
@@ -424,6 +441,7 @@ class Handler(SimpleHTTPRequestHandler):
                             "chemistries": design.DESIGNS,
                             "ppo_configured": self.policy is not None,
                             "atlas_efficacy_configured": self.atlas_model is not None,
+                            "bench_configured": self.bench is not None,
                         }
                     )
                 )
@@ -441,26 +459,74 @@ class Handler(SimpleHTTPRequestHandler):
                 status=503,
             )
 
+    def _json_body(self) -> dict:
+        length = int(self.headers.get("Content-Length", "-1"))
+        if not 0 < length <= MAX_BODY:
+            raise ValueError("Missing or oversized request.")
+        body = json.loads(self.rfile.read(length))
+        if not isinstance(body, dict):
+            raise ValueError("Expected a JSON object.")
+        return body
+
+    def _bench_api(self, action: str, query: str = "", *, post: bool = False) -> None:
+        cookie = None
+        try:
+            bench = self.bench
+            if not bench:
+                raise BenchError("Bench Workspace is unavailable on this server.", 404)
+            if post:
+                bench.browser_origin(
+                    self.headers.get("Origin", ""), self.headers.get("Content-Type", "")
+                )
+                body = self._json_body()
+                if action == "login":
+                    cookie = bench.login(body)
+                    result = {"ok": True}
+                else:
+                    session = bench.session(self.headers.get("Cookie", ""))
+                    result = bench.mutate(action, body, session)
+                    if action == "logout":
+                        cookie = bench.cookie()
+            else:
+                if action != "state":
+                    raise BenchError("Unknown workspace operation.", 404)
+                bench.session(self.headers.get("Cookie", ""))
+                key = parse_qs(query).get("project", [""])[0]
+                result = bench.state(key)
+            self._send(json.dumps(result, allow_nan=False), cookie=cookie)
+        except BenchError as error:
+            self._send(json.dumps({"error": str(error)}), status=error.status)
+        except (ValueError, OverflowError) as error:
+            self._send(json.dumps({"error": str(error)}), status=400)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception:
+            logging.exception("Bench request failed")
+            self._send('{"error":"The workspace request could not be saved or loaded."}', status=503)
+
     def do_GET(self) -> None:
         url = urlsplit(self.path)
-        if url.path.startswith("/api/"):
+        if url.path.startswith("/api/bench/"):
+            self._bench_api(url.path.removeprefix("/api/bench/"), url.query)
+        elif url.path == "/bench":
+            self.path = "/bench.html"
+            super().do_GET()
+        elif url.path.startswith("/api/"):
             self._api(url.path, {k: v[-1] for k, v in parse_qs(url.query).items()})
         else:
             super().do_GET()
 
     def do_POST(self) -> None:
         path = urlsplit(self.path).path
+        if path.startswith("/api/bench/"):
+            self._bench_api(path.removeprefix("/api/bench/"), post=True)
+            return
         if path not in ("/api/design", "/api/panel.csv"):
             self._send('{"error":"Unknown endpoint."}', status=404)
             return
         try:
-            length = int(self.headers.get("Content-Length", "-1"))
-            if not 0 < length <= MAX_BODY:
-                raise ValueError("Missing or oversized request.")
-            body = json.loads(self.rfile.read(length))
-            if not isinstance(body, dict) or any(
-                not isinstance(v, (str, int)) for v in body.values()
-            ):
+            body = self._json_body()
+            if any(not isinstance(v, (str, int)) for v in body.values()):
                 raise ValueError("Expected a JSON object of design options.")
             params = {key: str(value) for key, value in body.items()}
         except (ValueError, UnicodeDecodeError) as error:
@@ -495,6 +561,8 @@ def main() -> None:
     parser.add_argument("--no-warm", action="store_true")
     parser.add_argument("--policy", type=Path, help="Trusted ASO policy directory")
     parser.add_argument("--atlas-efficacy", type=Path, help="Verified Atlas model JSON")
+    parser.add_argument("--bench-dir", type=Path, help="Private workspace and access key directory")
+    parser.add_argument("--bench-origin", action="append", default=[], help="Allowed workspace origin")
     parser.add_argument("--train-policy", type=Path, metavar="OUTPUT")
     parser.add_argument("--training-gene", default="HTT")
     parser.add_argument("--validation-gene", default="APP")
@@ -515,6 +583,11 @@ def main() -> None:
     if atlas_path is not None:
         try:
             Handler.atlas_model = PortableEfficacy(atlas_path)
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+    if args.bench_dir:
+        try:
+            Handler.bench = Bench(args.bench_dir, args.bench_origin)
         except (OSError, ValueError) as error:
             parser.error(str(error))
     if not args.no_warm:

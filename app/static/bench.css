@@ -1,0 +1,35 @@
+.bench-head, .project-tools, .batch-line { display: flex; align-items: start; gap: 12px; justify-content: space-between; }
+.bench-head { align-items: center; margin-bottom: 18px; }
+.bench-head h1 { margin: 0; }
+.bench-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.login { max-width: 380px; }
+.login form, #settings-form, #result-form { display: grid; gap: 11px; margin-top: 12px; }
+.primary { border: 1px solid var(--accent); border-radius: 6px; color: #fff; background: var(--accent); padding: 9px 13px; width: fit-content; }
+button:disabled { cursor: default; opacity: .55; }
+.project-tools { margin-bottom: 16px; align-items: end; flex-wrap: wrap; }
+.project-tools label { min-width: min(250px, 70vw); }
+#recommend-form, .rename-row { display: flex; align-items: end; flex-wrap: wrap; gap: 9px; }
+#recommend-form label { min-width: 82px; max-width: 96px; }
+.bench-layout { display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(255px, 1fr); gap: 17px; align-items: start; }
+#batches { display: flex; gap: 6px; overflow: auto; padding: 3px 3px 11px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+#batches button[aria-current="true"] { color: #fff; background: var(--accent); border-color: var(--accent); }
+.batch-line { margin-bottom: 10px; }
+.rename-row { margin-bottom: 12px; }
+.candidate-details { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
+#selected-sequence, #helm { overflow-wrap: anywhere; font-family: var(--mono); }
+#selected-sequence { font-size: 16px; }
+#bench-status:not(:empty) { margin-bottom: 12px; font-size: 13px; }
+#bench-status.error { color: #9c3b27; }
+.muted, .list small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+#project-context, #budget-status { margin-top: 8px; font-size: 13px; line-height: 1.45; }
+.list { list-style: none; margin: 7px 0 0; padding: 0; }
+.list li { font-size: 13px; border-bottom: 1px solid var(--line); padding: 8px 0; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.list small { display: block; }
+.list button { margin-top: 5px; }
+.field-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.inline-check { display: flex; align-items: center; }
+.inline-check input { width: 15px; height: 15px; accent-color: var(--accent); }
+#result-form label textarea { font-family: inherit; }
+#candidates tr { cursor: default; }
+@media (max-width: 800px) { .bench-layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 560px) { .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
