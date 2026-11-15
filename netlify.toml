@@ -1,0 +1,51 @@
+# Netlify deployment for the OligoAL frontend.
+#
+# Netlify serves static files and Functions only, and Functions have no Python
+# runtime, so app/server.py cannot run here. Host the Python API on a service
+# that runs the Dockerfile (Cloud Run, Render, Fly.io), then set API_ORIGIN in
+# Netlify to that backend's HTTPS origin. scripts/netlify-build.sh turns it into
+# a same-origin proxy for /api/*, so the frontend needs no changes and the Bench
+# Workspace session cookie keeps working.
+#
+# Site configuration > Environment variables:
+#   API_ORIGIN = https://oligoal-api.example.run.app
+#
+# Start the backend with the Netlify site URL as its workspace origin:
+#   python app/server.py --bench-origin https://your-site.netlify.app
+
+[build]
+  publish = "dist"
+  command = "sh scripts/netlify-build.sh"
+
+# The published files are already minified by hand; skip Netlify's post-processing.
+[build.processing]
+  skip_processing = true
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "same-origin"
+
+# Logo and icons are content-stable; the HTML and scripts stay on Netlify's
+# default revalidating cache so deploys take effect immediately.
+[[headers]]
+  for = "/oligoal-logo.png"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/favicon.png"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/favicon.ico"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/apple-touch-icon.png"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

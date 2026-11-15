@@ -2,6 +2,8 @@
 /.venv/
 /artifacts/
 /vendor/
+/dist/
+.netlify/
 __pycache__/
 *.py[cod]
 .pytest_cache/

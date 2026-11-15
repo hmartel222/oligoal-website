@@ -19,7 +19,7 @@ button:disabled { cursor: default; opacity: .55; }
 #selected-sequence, #helm { overflow-wrap: anywhere; font-family: var(--mono); }
 #selected-sequence { font-size: 16px; }
 #bench-status:not(:empty) { margin-bottom: 12px; font-size: 13px; }
-#bench-status.error { color: #9c3b27; }
+#bench-status.error { color: var(--highlight-ink); }
 .muted, .list small { color: var(--muted); font-size: 12px; line-height: 1.5; }
 #project-context, #budget-status { margin-top: 8px; font-size: 13px; line-height: 1.45; }
 .list { list-style: none; margin: 7px 0 0; padding: 0; }

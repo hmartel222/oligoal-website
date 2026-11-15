@@ -103,7 +103,7 @@ export class DuplexView {
     };
     a.forEach((residue, i) => {
       const gc = "GC".includes(this.sequence[i]);
-      line(residue.base, b[a.length - i - 1].base, "#d1e8d9", gc ? 1.4 : .8, gc ? .62 : .36);
+      line(residue.base, b[a.length - i - 1].base, "#cfe3e6", gc ? 1.4 : .8, gc ? .62 : .36);
     });
     for (const strand of [a, b]) {
       strand.forEach(({ p, base, color }, i) => {

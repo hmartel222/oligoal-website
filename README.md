@@ -84,6 +84,33 @@ For a free temporary demo, run the app locally on port 8128 and run
 `--allowed-mail you@example.com` to require an email PIN. The URL lasts
 while the local app and tunnel are running. [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)
 
+### Netlify (frontend) with the API elsewhere
+
+Netlify serves static files and Functions, and its Functions have no Python
+runtime, so `app/server.py` cannot run on Netlify on any plan. Deploy the
+frontend to Netlify and run the API on a host that builds the Dockerfile.
+
+`netlify.toml` publishes `dist/`, which `scripts/netlify-build.sh` assembles
+from `app/static`. Set `API_ORIGIN` under **Site configuration > Environment
+variables** to the backend's HTTPS origin. The build writes a `/api/*` proxy
+rule to it, so the browser still sees one origin and the Bench Workspace
+session cookie (`Secure; HttpOnly; SameSite=Strict`) keeps working. Without
+`API_ORIGIN` the site still deploys and `/api/*` returns a 503 that the
+interface displays as a configuration message.
+
+Start the backend with the Netlify site URL as its workspace origin:
+
+```sh
+.venv/bin/python app/server.py --bench-origin https://your-site.netlify.app
+```
+
+The free Netlify plan covers this frontend: no build minutes are consumed
+beyond the file copy, and the published assets are a few hundred kilobytes.
+Backend compute, persistent storage for `workspace.sqlite3`, and the memory
+for the model fits all stay with the API host.
+
+### Other hosts
+
 An independent cloud deployment needs a host that runs the Python backend.
 GitHub Pages serves static files only. Cloud Run can run the container
 and has a free usage allowance on a billing account. [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages),
