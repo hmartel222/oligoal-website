@@ -5,7 +5,9 @@ const viewer = new DuplexView($("viewer"));
 let runVersion = 0;
 let currentRun;
 let structureRequest;
+let exportRequest;
 let results;
+let resultParams;
 
 function node(tag, text) {
   const element = document.createElement(tag);
@@ -24,6 +26,11 @@ function showViewerStatus(message) {
   $("viewer-status").hidden = !message;
 }
 
+function showExportStatus(message) {
+  $("export-status").textContent = message;
+  $("export-status").hidden = !message;
+}
+
 const present = (value) => Number.isFinite(value);
 const formatted = (value) => present(value) ? value.toFixed(2) : "—";
 const site = (row) => `${row.start + 1}–${row.end}`;
@@ -32,10 +39,13 @@ async function run(event) {
   event.preventDefault();
   currentRun?.abort();
   structureRequest?.abort();
+  exportRequest?.abort();
   currentRun = new AbortController();
   const version = ++runVersion;
   const runParams = Object.fromEntries(new FormData($("design-form")));
   results = undefined;
+  resultParams = undefined;
+  showExportStatus("");
   $("workspace").hidden = true;
   $("detail").hidden = true;
   $("run").setAttribute("aria-busy", "true");
@@ -51,6 +61,7 @@ async function run(event) {
     if (version !== runVersion) return;
     if (!response.ok) throw new Error(next.error || "The design run failed.");
     results = next;
+    resultParams = runParams;
     render();
     status("");
   } catch (error) {
@@ -66,14 +77,20 @@ function render() {
   const methods = {
     ppo: "Exploratory PPO",
     design_space_search: "Design-space search",
+    atlas_efficacy: "Atlas 20-mer efficacy",
     immune_panel: "2′-OMe immune panel",
   };
   $("provenance").textContent = `${transcript.gene} · ${transcript.transcript_id} · ${transcript.length.toLocaleString()} nt`;
-  $("method").textContent = `${methods[summary.method]} · ${summary.scored} scored · ${summary.ranked_by}`;
+  const assay = summary.assay;
+  const context = assay
+    ? ` · ${assay.cell_line}, ${assay.transfection_method.toLowerCase()}, ${assay.dosage_nm.toLocaleString()} nM, ${assay.treatment_period_hrs} h`
+    : "";
+  $("method").textContent = `${methods[summary.method]} · ${summary.scored.toLocaleString()} scored · ${summary.ranked_by}${context}`;
   $("coverage").textContent = rows.length
-    ? `Showing ${rows.length} candidates. Coordinates are 1-based on this transcript.`
+    ? `Showing ${rows.length} of ${summary.ranked_count.toLocaleString()} ranked candidates. Coordinates are 1-based on this transcript.`
     : "No candidates qualified for this run.";
   $("download").disabled = !rows.length;
+  $("download-full").disabled = !rows.length;
   const headings = node("tr");
   headings.append(...["Rank", "ASO 5′–3′", "Site"].map((label) => node("th", label)));
   for (const [, spec] of columns) {
@@ -166,12 +183,58 @@ async function select(index) {
 
 $("design-form").addEventListener("submit", run);
 $("reset-view").addEventListener("click", () => viewer.reset());
-$("download").addEventListener("click", () => {
-  if (!results?.csv) return;
-  const url = URL.createObjectURL(new Blob([results.csv], { type: "text/csv;charset=utf-8" }));
+
+function download(blob, filename) {
+  const url = URL.createObjectURL(blob);
   const link = node("a");
   link.href = url;
-  link.download = "aso-candidates.csv";
+  link.download = filename;
   link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
+$("download").addEventListener("click", () => {
+  if (!results?.csv) return;
+  download(new Blob([results.csv], { type: "text/csv;charset=utf-8" }), "aso-candidates.csv");
 });
+
+$("download-full").addEventListener("click", async () => {
+  if (!resultParams || $("download-full").disabled) return;
+  const request = exportRequest = new AbortController();
+  const version = runVersion;
+  $("download-full").disabled = true;
+  showExportStatus("Preparing full CSV…");
+  try {
+    const response = await fetch("/api/panel.csv", {
+      method: "POST",
+      signal: request.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...resultParams, scope: "full" }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "The full export failed.");
+    }
+    const csv = await response.blob();
+    if (version !== runVersion) return;
+    download(csv, `${results.transcript.gene}-${results.chemistry}-full.csv`);
+    showExportStatus("");
+  } catch (error) {
+    if (version === runVersion && error.name !== "AbortError") showExportStatus(error.message);
+  } finally {
+    if (version === runVersion) $("download-full").disabled = false;
+  }
+});
+
+async function loadProfiles() {
+  try {
+    const response = await fetch("/api/meta", { cache: "no-store" });
+    if (!response.ok) return;
+    const meta = await response.json();
+    $("atlas-profile").disabled = !meta.atlas_efficacy_configured;
+  } catch {
+    // The default profiles remain available while metadata is unreachable.
+  }
+}
+
+loadProfiles();

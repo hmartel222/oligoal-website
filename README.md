@@ -21,6 +21,13 @@ Open [localhost:8128](http://127.0.0.1:8128/). On macOS, you can also
 double-click `Run Website.command` after setup. Gene lookup uses Ensembl.
 Paste a transcript to run a design without an Ensembl lookup.
 
+To enable the Atlas 20-mer efficacy profile, put the verified
+`supported-aso-v1/efficacy.json` checkpoint in
+`artifacts/supported-aso-v1/efficacy.json`, or pass
+`--atlas-efficacy /path/to/efficacy.json` to the launcher. The server
+checks the checkpoint hash at startup. For Docker, mount the artifact
+read-only at `/srv/oligoal/artifacts/supported-aso-v1/efficacy.json`.
+
 A fresh clone starts with legal-move traversal for 2′-MOE design.
 To enable exploratory PPO, run the following after setup and restart the
 server. The checkpoint and transcript cache are local runtime artifacts.

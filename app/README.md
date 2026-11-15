@@ -13,6 +13,10 @@ Open [localhost:8000](http://127.0.0.1:8000), enter a human gene symbol, and
 run the design. Gene lookup uses Ensembl and caches the resulting cDNA. Paste
 a transcript to work offline. Each run resolves its own transcript and
 replaces the results. CSV exports the rows from that run.
+**Export shortlist CSV** downloads the visible rows. **Export full CSV**
+ranks the same submitted transcript and profile with the same deterministic
+settings and downloads every ranked candidate. The browser keeps showing
+the shortlist.
 
 ## Design and model coverage
 
@@ -25,9 +29,13 @@ replaces the results. CSV exports the rows from that run.
 - **2′-OMe immune panel** uses the TLR7 RF and TLR8 GP on matching molecules.
   The panel ranks by distance from the TLR8 assay control and reports both
   reporter responses separately. The current Gymnasium environment supports MOE.
-- IC₅₀, hepatotoxicity, and the Atlas inference bundle remain unavailable here.
-  The Atlas model code/results are separate from the missing loadable fitted
-  artifact. Knockdown is displayed as percent inhibition.
+- **Atlas efficacy · 20 nt** scores every unambiguous transcript window
+  using the frozen ASO Atlas position-specific Ridge model. The fixed assay
+  is human HepG2, electroporation, 4,500 nM and 24 hours. The model uses full-PS
+  5-10-5 MOE gapmers with methylcytosine. Provide the verified model checkpoint
+  using the [root setup instructions](../README.md) to enable this mode.
+- IC₅₀ and hepatotoxicity remain unavailable. Knockdown is displayed as percent
+  inhibition.
 
 ## Exploratory PPO policy
 

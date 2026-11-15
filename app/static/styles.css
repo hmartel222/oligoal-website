@@ -72,6 +72,7 @@ canvas:active { cursor: grabbing; }
 .structure-note, .footnote { color: var(--muted); font-size: 12px; margin-top: 8px; line-height: 1.45; }
 .alignment { font: 11px/1.55 var(--mono); color: #233b31; background: #f2f6f4; padding: 8px; border-radius: 5px; overflow-x: auto; margin: 10px 0; }
 .exports { display: flex; gap: 8px; flex-wrap: wrap; }
+.candidate-exports { justify-content: flex-end; }
 dl { margin: 7px 0 0; }
 .endpoint { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
 dt { font-weight: 600; }

@@ -4,12 +4,13 @@ Everything here is label-free and deterministic. Nothing in this module consults
 measured label, a model, or a held-out partition: it turns a target transcript into
 candidate oligonucleotides and computes sequence-derived properties of them.
 
-Two chemistries are supported, each chosen to match a training set exactly rather
-than to be generally expressive:
+The gapmer profiles are matched to specific training sets:
 
 * ``ps_moe_gapmer`` - 5-10-4 2'-MOE wings over a DNA core, full phosphorothioate,
   5-methylcytosine throughout. This is the chemistry of ``MOE_Neurotox_1`` and the
   chemistry Dr. Sun identified as what the field actually runs.
+* ``ps_moe_20_gapmer`` - 5-10-5 2'-MOE, full phosphorothioate and 5-methylcytosine
+  throughout. This is the profile of the frozen Atlas efficacy model.
 * ``ps_2ome_gapmer`` - 5-10-5 2'-O-methyl wings over a DNA core, full
   phosphorothioate. This is the chemistry of the Alharbi 2020 TLR screens.
 
@@ -26,6 +27,7 @@ from dataclasses import dataclass
 from oligo_engine.contracts import Observation
 
 COMPLEMENT = str.maketrans("ACGTU", "TGCAA")
+MOE_CHEMISTRIES = ("ps_moe_gapmer", "ps_moe_20_gapmer")
 
 # Each chemistry's design is pinned to the dominant design in the dataset the
 # matching predictor was fitted on, because the fitted featurizer has a fixed width
@@ -37,6 +39,7 @@ COMPLEMENT = str.maketrans("ACGTU", "TGCAA")
 DESIGNS = {
     "ps_moe_gapmer": {"length": 19, "wing5": 5, "wing3": 4},
     "ps_2ome_gapmer": {"length": 20, "wing5": 5, "wing3": 5},
+    "ps_moe_20_gapmer": {"length": 20, "wing5": 5, "wing3": 5},
 }
 CHEMISTRIES = tuple(DESIGNS)
 
@@ -105,8 +108,8 @@ def build_helm(
     last = len(sequence) - 1
     for index, base in enumerate(sequence):
         in_wing = index < wing5 or index > last - wing3
-        if chemistry == "ps_moe_gapmer":
-            # Every cytosine in MOE_Neurotox_1 is 5-methylcytosine, in core and wing.
+        if chemistry in MOE_CHEMISTRIES:
+            # Both MOE templates use 5-methylcytosine in the wings and core.
             symbol = "[m5C]" if base == "C" else base
             sugar = "[moe]" if in_wing else "d"
         else:

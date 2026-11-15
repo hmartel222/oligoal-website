@@ -15,6 +15,8 @@ all-atom model.
 
 from math import cos, pi, radians, sin
 
+from oligo_engine.design.candidates import MOE_CHEMISTRIES
+
 # Idealized A-form parameters (Arnott): the hybrid duplex an RNase H gapmer forms is
 # intermediate between A and B, so these are indicative only.
 RISE = 2.81
@@ -40,7 +42,7 @@ def _residue_name(base: str, strand: str, in_wing: bool, chemistry: str) -> str:
     if strand == "B":
         return {"A": "  A", "C": "  C", "G": "  G", "U": "  U"}.get(base, "  N")
     if in_wing:
-        return "MOE" if chemistry == "ps_moe_gapmer" else "OMe"
+        return "MOE" if chemistry in MOE_CHEMISTRIES else "OMe"
     return {"A": " DA", "C": " DC", "G": " DG", "T": " DT"}.get(base, " DN")
 
 

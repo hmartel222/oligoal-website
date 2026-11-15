@@ -6,7 +6,7 @@
   <title>OligoAL · ASO design</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="styles.css">
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=2"></script>
 </head>
 <body>
   <header class="top">
@@ -26,6 +26,7 @@
           <label>Design profile
             <select id="chemistry" name="chemistry">
               <option value="ps_moe_gapmer">2′-MOE gapmer · 19 nt</option>
+              <option id="atlas-profile" value="ps_moe_20_gapmer" disabled>Atlas efficacy · 20 nt</option>
               <option value="ps_2ome_gapmer">2′-OMe immune panel · 20 nt</option>
             </select>
           </label>
@@ -47,7 +48,10 @@
             <h2 id="results-title">Candidates</h2>
             <p id="provenance"></p>
           </div>
-          <button type="button" id="download" class="secondary">Export CSV</button>
+          <div class="exports candidate-exports">
+            <button type="button" id="download" class="secondary">Export shortlist CSV</button>
+            <button type="button" id="download-full" class="secondary">Export full CSV</button>
+          </div>
         </div>
         <p id="method" class="method"></p>
         <div class="table-scroll">
@@ -57,6 +61,7 @@
           </table>
         </div>
         <p id="coverage" class="coverage"></p>
+        <p id="export-status" class="coverage" role="status" hidden></p>
       </section>
 
       <section id="detail" class="detail" aria-labelledby="detail-title" hidden>

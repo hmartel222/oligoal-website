@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import threading
+from dataclasses import asdict
 from functools import lru_cache
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -23,6 +24,8 @@ from oligo_engine.design.engine import ENDPOINT_SPECS, DesignEngine
 from oligo_engine.design.structure import duplex_pdb, pymol_script
 from oligo_engine.design.transcripts import SYMBOL, Transcript, TranscriptError, fetch
 from oligo_engine.reward.oligogym import OligoGymInference
+from oligo_engine.reward.portable import CHEMISTRY as MOE_20
+from oligo_engine.reward.portable import PortableEfficacy
 from oligo_engine.reward.scoring import (
     AssayProfile,
     EndpointManifest,
@@ -33,6 +36,7 @@ from oligo_engine.reward.scoring import (
 
 STATIC = Path(__file__).resolve().parent / "static"
 DEFAULT_POLICY = STATIC.parents[1] / "artifacts" / "aso-app-policy"
+DEFAULT_ATLAS_MODEL = STATIC.parents[1] / "artifacts" / "supported-aso-v1" / "efficacy.json"
 ENGINE = DesignEngine()
 MODEL_LOCK = threading.Lock()
 MOE = "ps_moe_gapmer"
@@ -52,6 +56,11 @@ ENDPOINTS = {
     "tlr8_potentiation": ("TLR8 response", "× control", "Alharbi TLR8 GP"),
     "ic50": ("Potency (IC₅₀)", "nM", None),
     "hepatotoxicity": ("Hepatotoxicity", None, None),
+    "atlas_inhibition": ("Predicted knockdown", "% inhibition", "Atlas 20-mer Ridge"),
+}
+ENDPOINT_CHEMISTRIES = {
+    **{endpoint: spec["chemistry"] for endpoint, spec in ENDPOINT_SPECS.items()},
+    "atlas_inhibition": MOE_20,
 }
 
 
@@ -227,26 +236,57 @@ def immune_panel(target: TargetContext) -> tuple[list[dict], dict]:
     }
 
 
-def panel(params: dict[str, str], policy: Path | None) -> dict:
+def atlas_panel(target: TargetContext, model: PortableEfficacy) -> tuple[list[dict], dict]:
+    candidates = design.tile(
+        target.gene, target.transcript_id, target.sequence, chemistry=MOE_20
+    )
+    if not candidates:
+        raise ValueError("This transcript has no unambiguous 20-base windows.")
+    ranked = [(model.predict(candidate), candidate) for candidate in candidates]
+    ranked.sort(key=lambda item: (-item[0], item[1].start))
+    rows = [
+        {**vars(candidate), "predictions": {"atlas_inhibition": score}}
+        for score, candidate in ranked
+    ]
+    return rows, {
+        "method": "atlas_efficacy",
+        "ranked_by": "Predicted knockdown",
+        "scored": len(rows),
+        "assay": asdict(model.assay),
+    }
+
+
+def panel(
+    params: dict[str, str],
+    policy: Path | None,
+    atlas_model: PortableEfficacy | None = None,
+    *,
+    full: bool = False,
+) -> dict:
+    chemistry = params.get("chemistry", MOE)
+    if chemistry not in design.DESIGNS:
+        raise ValueError("Unsupported design chemistry.")
+    if chemistry == MOE_20 and atlas_model is None:
+        raise ValueError("The Atlas 20-mer efficacy checkpoint is unavailable.")
+    limit = min(100, max(1, int(params.get("limit", "24"))))
     gene = params.get("gene", "").strip().upper()
     sequence = params.get("sequence", "")
     transcript = resolve_transcript(gene or ("PASTED" if sequence else ""), sequence)
     target = target_context(transcript)
-    chemistry = params.get("chemistry", MOE)
-    if chemistry not in (MOE, OME):
-        raise ValueError("Unsupported design chemistry.")
-    limit = min(100, max(1, int(params.get("limit", "24"))))
-    with MODEL_LOCK:
-        if chemistry == MOE:
-            rows, summary = design_panel(target, deployment_scorer(), policy)
-        else:
-            rows, summary = immune_panel(target)
+    if chemistry == MOE_20 and atlas_model is not None:
+        rows, summary = atlas_panel(target, atlas_model)
+    else:
+        with MODEL_LOCK:
+            if chemistry == MOE:
+                rows, summary = design_panel(target, deployment_scorer(), policy)
+            else:
+                rows, summary = immune_panel(target)
     return {
         "transcript": transcript.as_dict(),
         "chemistry": chemistry,
         "design": design.DESIGNS[chemistry],
-        "summary": summary,
-        "rows": rows[:limit],
+        "summary": {**summary, "ranked_count": len(rows)},
+        "rows": rows if full else rows[:limit],
         "endpoints": {
             key: {
                 "title": title,
@@ -256,7 +296,7 @@ def panel(params: dict[str, str], policy: Path | None) -> dict:
                 if model is None
                 else (
                     "scored"
-                    if ENDPOINT_SPECS[key]["chemistry"] == chemistry
+                    if ENDPOINT_CHEMISTRIES[key] == chemistry
                     else "not_applicable"
                 ),
             }
@@ -336,6 +376,7 @@ def structure(params: dict[str, str]) -> tuple[str, str, str | None]:
 
 class Handler(SimpleHTTPRequestHandler):
     policy: Path | None = None
+    atlas_model: PortableEfficacy | None = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC), **kwargs)
@@ -365,12 +406,13 @@ class Handler(SimpleHTTPRequestHandler):
                 body, content_type, filename = structure(params)
                 self._send(body, content_type, filename=filename)
             elif path in ("/api/design", "/api/panel.csv"):
-                payload = panel(params, self.policy)
+                full = path == "/api/panel.csv" and params.get("scope") == "full"
+                payload = panel(params, self.policy, self.atlas_model, full=full)
                 if path == "/api/panel.csv":
                     self._send(
                         csv_panel(payload),
                         "text/csv; charset=utf-8",
-                        filename="aso-candidates.csv",
+                        filename="aso-candidates-full.csv" if full else "aso-candidates.csv",
                     )
                 else:
                     payload["csv"] = csv_panel(payload)
@@ -381,6 +423,7 @@ class Handler(SimpleHTTPRequestHandler):
                         {
                             "chemistries": design.DESIGNS,
                             "ppo_configured": self.policy is not None,
+                            "atlas_efficacy_configured": self.atlas_model is not None,
                         }
                     )
                 )
@@ -451,6 +494,7 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--no-warm", action="store_true")
     parser.add_argument("--policy", type=Path, help="Trusted ASO policy directory")
+    parser.add_argument("--atlas-efficacy", type=Path, help="Verified Atlas model JSON")
     parser.add_argument("--train-policy", type=Path, metavar="OUTPUT")
     parser.add_argument("--training-gene", default="HTT")
     parser.add_argument("--validation-gene", default="APP")
@@ -465,6 +509,14 @@ def main() -> None:
         (Handler.policy / name).is_file() for name in ("policy.zip", "manifest.json")
     ):
         parser.error("Expected policy.zip and manifest.json in the policy directory.")
+    atlas_path = args.atlas_efficacy
+    if atlas_path is None and DEFAULT_ATLAS_MODEL.exists():
+        atlas_path = DEFAULT_ATLAS_MODEL
+    if atlas_path is not None:
+        try:
+            Handler.atlas_model = PortableEfficacy(atlas_path)
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
     if not args.no_warm:
         print("Fitting the OligoGym deployment models…", flush=True)
         deployment_scorer()
