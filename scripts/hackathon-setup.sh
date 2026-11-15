@@ -9,9 +9,11 @@ bench="$HOME/oligoal-bench"
 
 mkdir -p "$bench"
 chmod 700 "$bench"
-printf 'useoligoal' > "$bench/access-key"
+if [ ! -e "$bench/access-key" ]; then
+  (umask 077 && python3 -c 'import secrets; print(secrets.token_urlsafe(32))' > "$bench/access-key")
+fi
 chmod 600 "$bench/access-key"
-printf 'Bench workspace ready at %s (access key: useoligoal)\n' "$bench"
+printf 'Bench workspace ready at %s. Read your key from access-key.\n' "$bench"
 
 if python3 -c 'import segno' 2>/dev/null; then
   printf 'QR library already installed.\n'

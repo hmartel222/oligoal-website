@@ -1,3 +1,5 @@
+import "./molecule-view.js";
+
 const $ = (id) => document.getElementById(id);
 const HANDOFF = "oligoal-bench-handoff";
 const profiles = {
@@ -187,6 +189,7 @@ function showCandidate(id) {
   $("selected-sequence").textContent = row.sequence;
   $("selected-site").textContent = `Site ${row.start + 1}–${row.end} · design rank ${row.design_rank}`;
   $("helm").textContent = row.helm;
+  if ($("candidate-structure").open) $("bench-molecule").show(row, state.project.transcript);
   const fields = Object.entries(state.project.endpoints)
     .filter(([key]) => Number.isFinite(row.predictions[key]))
     .map(([key, endpoint]) => [endpoint.title, `${format(row.predictions[key])} ${endpoint.units} · ${endpoint.model}`]);
@@ -350,6 +353,14 @@ $("logout").addEventListener("click", async () => {
     location.replace("/bench");
   } catch (error) {
     message(error.message, true);
+  }
+});
+$("candidate-structure").addEventListener("toggle", () => {
+  if ($("candidate-structure").open && selectedId) {
+    const row = activeBatch().candidates.find((candidate) => candidate.candidate_id === selectedId);
+    $("bench-molecule").show(row, state.project.transcript);
+  } else {
+    $("bench-molecule").clear();
   }
 });
 load();

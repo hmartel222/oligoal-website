@@ -391,12 +391,6 @@ def structure(params: dict[str, str]) -> tuple[str, str, str | None]:
         raise ValueError("ASO sequence does not match the design template.")
     target = target or design.reverse_complement(sequence).replace("T", "U")
 
-    def flank(name: str) -> str:
-        value = params.get(name, "").upper().replace("T", "U")
-        if set(value) - set("ACGUN"):
-            raise ValueError("Transcript flanks must be RNA bases.")
-        return value[:MAX_FLANK]
-
     pdb = duplex_pdb(
         sequence,
         chemistry,
@@ -404,8 +398,6 @@ def structure(params: dict[str, str]) -> tuple[str, str, str | None]:
         template["wing3"],
         "ASO-RNA duplex",
         target_window=target,
-        flank5=flank("flank5"),
-        flank3=flank("flank3"),
     )
     kind = params.get("format", "pdb")
     if kind == "pml":
@@ -556,7 +548,7 @@ class Handler(SimpleHTTPRequestHandler):
         if path.startswith("/api/bench/"):
             self._bench_api(path.removeprefix("/api/bench/"), post=True)
             return
-        if path not in ("/api/design", "/api/panel.csv"):
+        if path not in ("/api/design", "/api/panel.csv", "/api/structure"):
             self._send('{"error":"Unknown endpoint."}', status=404)
             return
         try:

@@ -1,345 +1,351 @@
-// Schematic viewer for the ASO:mRNA duplex.
-//
-// The coordinates come from the server's idealized A-form PDB, so nothing here
-// predicts structure; the drawing exists to show length, register, gapmer
-// architecture and where the oligo sits along the transcript. Residues are
-// painted back to front with depth shading, which is what gives the helix its
-// sense of volume on a flat canvas.
+import * as THREE from "./vendor/three.module.js";
+import {OrbitControls} from "./vendor/OrbitControls.js";
 
-const COLORS = {
-  wing: "#6ed9b2",
-  core: "#60a8fa",
-  rna: "#f7ab64",
-  flank: "#8d8f7f",
-  pair: "#cfe3e6",
-};
-// The stage colour, used to fade distant atoms into the background.
-const BACKGROUND = [12, 47, 52];
+const strandColors = {wing: 0x68dbb0, core: 0x8db9ff, rna: 0xf7b06d};
+const elementColors = {N: 0x659cff, O: 0xff6d79, P: 0xffa350, S: 0xffd779};
+const radii = {C: 1.70, N: 1.55, O: 1.52, P: 1.80, S: 1.80};
+const up = new THREE.Vector3(0, 1, 0);
 
-const ZOOM_MIN = 0.45;
-const ZOOM_MAX = 6;
-
-// HELM monomers look like d(A)[sp] or [moe]([m5C])[sp]: sugar, base, linkage.
-const MONOMER = /(\[[^\]]+\]|[a-z])\((\[[^\]]+\]|[A-Z])\)(\[[^\]]+\])?/g;
-
-const SUGARS = { "[moe]": "2′-MOE", m: "2′-OMe", d: "DNA", r: "RNA" };
-const LINKAGES = { "[sp]": "phosphorothioate", "": "3′ terminus" };
-
-function parseHelm(helm) {
-  if (typeof helm !== "string") return [];
-  const inner = helm.slice(helm.indexOf("{") + 1, helm.lastIndexOf("}"));
-  const units = [];
-  for (const match of inner.matchAll(MONOMER)) {
-    const [, sugar, base, linkage = ""] = match;
-    units.push({
-      sugar: SUGARS[sugar] || sugar.replace(/[[\]]/g, ""),
-      base: base.replace(/[[\]]/g, ""),
-      modified: base.startsWith("["),
-      linkage: LINKAGES[linkage] ?? linkage.replace(/[[\]]/g, ""),
-      thio: linkage === "[sp]",
-    });
+function parsePdb(source) {
+  const atoms = [];
+  const bySerial = new Map();
+  const links = [];
+  const pairs = [];
+  for (const line of source.split("\n")) {
+    if (line.startsWith("ATOM  ")) {
+      const atom = {
+        name: line.slice(12, 16).trim(),
+        kind: line.slice(17, 20).trim(),
+        residue: Number(line.slice(22, 26)),
+        chain: line[21],
+        element: line.slice(76, 78).trim(),
+        xyz: new THREE.Vector3(...[30, 38, 46].map((i) => Number(line.slice(i, i + 8)))),
+      };
+      bySerial.set(Number(line.slice(6, 11)), atoms.length);
+      atoms.push(atom);
+    } else if (line.startsWith("CONECT")) {
+      links.push([Number(line.slice(6, 11)), Number(line.slice(11, 16))]);
+    } else if (line.startsWith("REMARK   3 PAIR")) {
+      pairs.push(line.slice(15).trim().split(/ +/).map(Number));
+    }
   }
-  return units;
+  const indices = ([a, b]) => [bySerial.get(a), bySerial.get(b)];
+  if (!atoms.length || !links.length) throw new Error("The duplex has no atomic coordinates.");
+  return {atoms, bonds: links.map(indices), pairs: pairs.map(indices)};
 }
 
-// Mix a hex colour toward the background. `nearness` of 1 keeps it, 0 buries it.
-function shade(hex, nearness) {
-  const n = Math.max(0, Math.min(1, nearness));
-  const value = parseInt(hex.slice(1), 16);
-  const channels = [value >> 16 & 255, value >> 8 & 255, value & 255];
-  const mixed = channels.map((c, i) => Math.round(BACKGROUND[i] + (c - BACKGROUND[i]) * n));
-  return `rgb(${mixed.join(",")})`;
+function dispose(group) {
+  const geometries = new Set(), materials = new Set();
+  group.traverse((object) => {
+    if (object.geometry) geometries.add(object.geometry);
+    if (object.material) materials.add(object.material);
+    if (object.isInstancedMesh) object.dispose();
+  });
+  geometries.forEach((geometry) => geometry.dispose());
+  materials.forEach((material) => material.dispose());
+  group.clear();
+}
+
+function tracePoint(edge, index, count, direction) {
+  const t = index / Math.max(1, count);
+  const stretch = Math.min(108, 7 + Math.sqrt(count) * 1.1);
+  const along = t * stretch;
+  const angle = t * Math.PI * (count < 60 ? 1.1 : 3.2);
+  const spread = Math.sin(Math.PI * t / 2) * Math.min(49, 4 + Math.sqrt(count) * .65);
+  return new THREE.Vector3(
+    edge.x + Math.sin(angle) * spread,
+    edge.y + direction * Math.sin(angle * .9) * spread * .72,
+    edge.z + direction * (along + Math.cos(angle) * spread * .32),
+  );
 }
 
 export class DuplexView {
-  constructor(canvas, { onHover } = {}) {
+  constructor(canvas, onPick) {
     this.canvas = canvas;
-    this.context = canvas.getContext("2d");
-    this.onHover = onHover;
-    this.strands = [];
-    this.units = [];
-    this.picks = [];
-    this.reset();
-    new ResizeObserver(() => this.draw()).observe(canvas);
-
-    let drag;
+    this.onPick = onPick;
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(34, 1, .1, 4000);
+    this.camera.up.set(0, .89, .45).normalize();
+    this.duplex = new THREE.Group();
+    this.trace = new THREE.Group();
+    this.scene.add(this.trace, this.duplex, new THREE.HemisphereLight(0xd9f7ff, 0x50546d, 2.9));
+    for (const [position, color, intensity] of [
+      [[-30, 30, 70], 0xfff3dd, 3],
+      [[-30, -35, -15], 0x7fbfff, 1.8],
+    ]) {
+      const light = new THREE.DirectionalLight(color, intensity);
+      light.position.set(...position);
+      this.scene.add(light);
+    }
+    this.renderer = new THREE.WebGLRenderer({canvas, alpha: true, antialias: true});
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+    this.controls = new OrbitControls(this.camera, canvas);
+    this.controls.minDistance = 3;
+    this.controls.maxDistance = 1500;
+    this.controls.zoomSpeed = .9;
+    this.controls.target.set(0, 0, 0);
+    this.controls.addEventListener("change", () => this.draw());
+    this.observer = new ResizeObserver(() => this.resize());
+    this.observer.observe(canvas);
+    this.animation = 0;
+    this.setMotion(!matchMedia("(prefers-reduced-motion: reduce)").matches);
+    this.mode = "binding";
+    this.style = "sticks";
+    this.transform = new THREE.Object3D();
+    this.pick = new THREE.Raycaster();
+    this.pointer = new THREE.Vector2();
+    this.drag = null;
     canvas.addEventListener("pointerdown", (event) => {
-      canvas.setPointerCapture(event.pointerId);
-      drag = { x: event.clientX, y: event.clientY, pan: event.shiftKey || event.button === 1 };
+      this.drag = {x: event.clientX, y: event.clientY};
     });
-    canvas.addEventListener("pointermove", (event) => {
-      if (!drag) {
-        this.hover(event);
-        return;
+    canvas.addEventListener("pointerup", (event) => {
+      if (event.button === 0 && this.drag && Math.hypot(event.clientX - this.drag.x, event.clientY - this.drag.y) < 5) {
+        this.selectAtom(event);
       }
-      const dx = event.clientX - drag.x;
-      const dy = event.clientY - drag.y;
-      if (drag.pan) {
-        this.panX += dx;
-        this.panY += dy;
-      } else {
-        this.angle += dx * 0.012;
-        this.tilt += dy * 0.012;
-      }
-      drag.x = event.clientX;
-      drag.y = event.clientY;
-      this.draw();
+      this.drag = null;
     });
-    canvas.addEventListener("lostpointercapture", () => { drag = undefined; });
-    canvas.addEventListener("pointerleave", () => this.setHovered(undefined));
-
-    canvas.addEventListener("wheel", (event) => {
-      if (!this.strands.length) return;
-      event.preventDefault();
-      // Trackpad pinch arrives as a ctrl-wheel; both gestures zoom.
-      this.zoomBy(Math.exp(-event.deltaY * 0.0016));
-    }, { passive: false });
-
-    canvas.addEventListener("keydown", (event) => {
-      const rotation = {
-        ArrowLeft: [-0.2, 0], ArrowRight: [0.2, 0],
-        ArrowUp: [0, -0.2], ArrowDown: [0, 0.2],
-      }[event.key];
-      if (rotation) {
-        event.preventDefault();
-        this.angle += rotation[0];
-        this.tilt += rotation[1];
-        this.draw();
-        return;
-      }
-      if (event.key === "+" || event.key === "=") {
-        event.preventDefault();
-        this.zoomBy(1.18);
-      } else if (event.key === "-" || event.key === "_") {
-        event.preventDefault();
-        this.zoomBy(1 / 1.18);
-      } else if (event.key === "0") {
-        event.preventDefault();
-        this.reset();
-      }
-    });
+    canvas.addEventListener("keydown", (event) => this.keyboard(event));
   }
 
-  zoomBy(factor) {
-    this.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, this.zoom * factor));
-    this.draw();
-  }
-
-  reset() {
-    this.angle = 0.48;
-    this.tilt = -0.14;
-    this.zoom = 1;
-    this.panX = 0;
-    this.panY = 0;
+  resize() {
+    const {clientWidth, clientHeight} = this.canvas;
+    if (!clientWidth || !clientHeight) return;
+    this.renderer.setSize(clientWidth, clientHeight, false);
+    this.camera.aspect = clientWidth / clientHeight;
+    this.camera.updateProjectionMatrix();
     this.draw();
   }
 
   clear() {
-    this.strands = [];
-    this.units = [];
-    this.picks = [];
-    this.setHovered(undefined);
+    this.structure = null;
+    this.atoms = null;
+    dispose(this.duplex);
+    dispose(this.trace);
     this.draw();
   }
 
-  /**
-   * @param pdb       PDB text from /api/structure
-   * @param sequence  the ASO sequence, 5'->3'
-   * @param design    { wing5, wing3 } from the chemistry template
-   * @param context   { helm, flank5, flank3 } for annotation and mRNA extent
-   */
-  load(pdb, sequence, { wing5, wing3 }, { helm = "", flank5 = "", flank3 = "" } = {}) {
-    if (!this.context) throw new Error("Canvas unavailable. Download the PyMOL script to view.");
-    const length = sequence.length;
-    this.units = parseHelm(helm);
-    const a = Array.from({ length }, (_, index) => {
-      const unit = this.units[index];
-      const wing = index < wing5 || index >= length - wing3;
-      return {
-        color: wing ? COLORS.wing : COLORS.core,
-        base: sequence[index],
-        label: `ASO ${index + 1} · ${unit?.base || sequence[index]}`,
-        detail: unit
-          ? `${unit.sugar}${unit.modified ? ` · ${unit.base}` : ""} · ${unit.linkage}`
-          : wing ? "wing" : "DNA core",
-        thio: unit?.thio ?? index < length - 1,
-      };
-    });
-
-    // Chain B is the transcript: flank5 + binding window + flank3, 5'->3'.
-    const rnaLength = flank5.length + length + flank3.length;
-    const b = Array.from({ length: rnaLength }, (_, index) => {
-      const paired = index >= flank5.length && index < flank5.length + length;
-      return {
-        color: paired ? COLORS.rna : COLORS.flank,
-        paired,
-        label: `mRNA ${index + 1}`,
-        detail: paired ? "paired with the ASO" : "unpaired transcript",
-      };
-    });
-
-    for (const line of pdb.split("\n")) {
-      if (!line.startsWith("ATOM  ") || !["A", "B"].includes(line[21])) continue;
-      const atom = line.slice(12, 16).trim();
-      if (atom !== "P" && atom !== "N1") continue;
-      const residue = (line[21] === "A" ? a : b)[Number(line.slice(22, 26)) - 1];
-      if (residue) residue[atom] = [30, 38, 46].map((s) => Number(line.slice(s, s + 8)));
-    }
-    if ([...a, ...b].some(({ P, N1 }) => !P || !N1 || ![...P, ...N1].every(Number.isFinite))) {
-      throw new Error("The duplex file is incomplete.");
-    }
-
-    this.strands = [a, b];
-    this.sequence = sequence;
-    this.flank5 = flank5.length;
-    // Frame on the bound window rather than the whole transcript: the oligo is
-    // the subject, and the flanks reading off both edges is the point of them.
-    const bound = a.map(({ P }) => P[2]);
-    const all = [...a, ...b].map(({ P }) => P[2]);
-    this.center = (Math.min(...bound) + Math.max(...bound)) / 2;
-    const duplex = Math.max(...bound) - Math.min(...bound);
-    const whole = Math.max(...all) - Math.min(...all);
-    this.span = duplex + 0.5 * (whole - duplex);
+  load(pdb, candidate, length) {
+    this.clear();
+    this.structure = parsePdb(pdb);
+    this.start = candidate.start;
+    this.end = candidate.end;
+    this.length = Math.max(this.end, length);
+    this.mode = "binding";
+    this.buildDuplex();
+    this.buildTrace();
+    this.resize();
     this.reset();
   }
 
-  setHovered(pick) {
-    const changed = this.hovered?.key !== pick?.key;
-    this.hovered = pick;
-    if (changed) {
-      this.canvas.style.cursor = pick ? "pointer" : "";
-      this.onHover?.(pick);
+  color(atom) {
+    return new THREE.Color(elementColors[atom.element] ?? (
+      atom.chain === "B" ? strandColors.rna : ["MOE", "OME"].includes(atom.kind) ? strandColors.wing : strandColors.core
+    ));
+  }
+
+  buildDuplex() {
+    dispose(this.duplex);
+    const {atoms, bonds, pairs} = this.structure;
+    const material = new THREE.MeshStandardMaterial({roughness: .52, metalness: .04});
+    this.atoms = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 14, 10), material, atoms.length);
+    this.atoms.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.atoms.frustumCulled = false;
+    const color = (index) => this.color(atoms[index]);
+
+    atoms.forEach((atom, index) => {
+      this.atoms.setColorAt(index, color(index));
+    });
+    this.duplex.add(this.atoms);
+    this.bonds = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 10), material, bonds.length * 2);
+    this.bonds.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.bonds.frustumCulled = false;
+    bonds.forEach(([a, b], i) => {
+      this.bonds.setColorAt(i * 2, color(a));
+      this.bonds.setColorAt(i * 2 + 1, color(b));
+    });
+    this.duplex.add(this.bonds);
+
+    const segments = [];
+    for (const [a, b] of pairs) {
+      if (atoms[a].xyz.distanceTo(atoms[b].xyz) <= 3.85) segments.push(atoms[a].xyz, atoms[b].xyz);
+    }
+    const lines = new THREE.BufferGeometry().setFromPoints(segments);
+    this.pairs = new THREE.LineSegments(lines, new THREE.LineDashedMaterial({
+      color: 0xded8ad, dashSize: .24, gapSize: .22, transparent: true, opacity: .53,
+    }));
+    this.pairs.computeLineDistances();
+    this.duplex.add(this.pairs);
+    this.updateGeometry(0);
+  }
+
+  buildTrace() {
+    dispose(this.trace);
+    const rna = this.structure.atoms.filter((atom) => atom.chain === "B");
+    const first = rna.find((atom) => atom.residue === 1 && atom.name === "O5'").xyz;
+    const last = rna.find((atom) => atom.residue === this.end - this.start && atom.name === "O3'").xyz;
+    const overall = [...rna.map((atom) => atom.xyz)];
+    for (const [edge, count, direction] of [[first, this.start, -1], [last, this.length - this.end, 1]]) {
+      if (!count) continue;
+      const positions = new Float32Array((count + 1) * 3);
+      for (let i = 0; i <= count; i++) {
+        const position = tracePoint(edge, i, count, direction);
+        position.toArray(positions, i * 3);
+        if (i % Math.max(1, Math.floor(count / 100)) === 0 || i === count) overall.push(position);
+      }
+      const path = new THREE.BufferGeometry();
+      path.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      this.trace.add(new THREE.Line(path, new THREE.LineBasicMaterial({
+        color: strandColors.rna, transparent: true, opacity: .74,
+      })));
+      const samples = Math.min(130, count);
+      const points = Array.from({length: samples + 1}, (_, i) => tracePoint(edge, i * count / samples, count, direction));
+      const tubing = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), Math.min(200, count + 5), .44, 7);
+      this.trace.add(new THREE.Mesh(tubing, new THREE.MeshStandardMaterial({color: strandColors.rna, roughness: .61})));
+      const marker = new THREE.Mesh(new THREE.SphereGeometry(1.22, 12, 8),
+        new THREE.MeshStandardMaterial({color: strandColors.rna}));
+      marker.position.copy(points.at(-1));
+      this.trace.add(marker);
+    }
+    this.overall = overall;
+  }
+
+  updateGeometry(time) {
+    const {atoms, bonds} = this.structure;
+    const transform = this.transform;
+    const offset = (atom) => {
+      const {xyz} = atom, z = xyz.z;
+      const wave = (z + 22) * .17;
+      return new THREE.Vector3(
+        xyz.x + Math.sin(wave + time * 4.2) * .18 * Math.sin(time * 3.9),
+        xyz.y + Math.cos(wave + time * 3.1) * .18 * Math.sin(time * 4.3),
+        z + Math.sin(wave + time * 4.6) * .08 * Math.sin(time * 3.7),
+      );
+    };
+    const points = atoms.map(offset);
+    const size = this.style === "space" ? .94 : .25;
+    this.bonds.visible = this.style !== "space";
+    this.pairs.visible = this.style !== "space";
+    this.atoms.visible = true;
+    for (const [index, atom] of atoms.entries()) {
+      transform.position.copy(points[index]);
+      transform.quaternion.identity();
+      transform.scale.setScalar(size * (radii[atom.element] ?? 1.65));
+      transform.updateMatrix();
+      this.atoms.setMatrixAt(index, transform.matrix);
+    }
+    this.atoms.instanceMatrix.needsUpdate = true;
+    if (this.bonds.visible) {
+      const position = new THREE.Vector3(), direction = new THREE.Vector3();
+      const segment = (a, b, index) => {
+        direction.subVectors(b, a);
+        const length = direction.length();
+        transform.position.copy(a).addScaledVector(direction, .5);
+        transform.quaternion.setFromUnitVectors(up, direction.normalize());
+        transform.scale.set(.119, length, .119);
+        transform.updateMatrix();
+        this.bonds.setMatrixAt(index, transform.matrix);
+      };
+      bonds.forEach(([a, b], index) => {
+        position.copy(points[a]).lerp(points[b], .5);
+        segment(points[a], position, index * 2);
+        segment(position, points[b], index * 2 + 1);
+      });
+      this.bonds.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  setStyle(style) {
+    this.style = style;
+    if (this.structure) this.updateGeometry(0);
+    this.draw();
+  }
+
+  setMotion(enabled) {
+    this.motion = enabled;
+    if (enabled && !this.animation) {
+      const animate = (time) => {
+        if (!this.motion) {
+          this.animation = 0;
+          return;
+        }
+        if (this.structure && this.canvas.getClientRects().length && !document.hidden && time - this.lastFrame >= 32) {
+          this.lastFrame = time;
+          this.updateGeometry(time / 1000);
+          this.draw();
+        }
+        this.animation = requestAnimationFrame(animate);
+      };
+      this.lastFrame = 0;
+      this.animation = requestAnimationFrame(animate);
+    } else if (!enabled && this.structure) {
+      this.updateGeometry(0);
       this.draw();
     }
   }
 
-  hover(event) {
-    if (!this.picks.length) return this.setHovered(undefined);
-    const box = this.canvas.getBoundingClientRect();
-    const x = event.clientX - box.left;
-    const y = event.clientY - box.top;
-    let best;
-    for (const pick of this.picks) {
-      const distance = Math.hypot(pick.x - x, pick.y - y);
-      // Prefer the nearest to the pointer, breaking ties toward the viewer.
-      if (distance <= pick.r + 5 && (!best || distance < best.distance)) {
-        best = { ...pick, distance };
-      }
+  setMode(mode) {
+    this.mode = mode;
+    this.reset();
+  }
+
+  reset() {
+    if (!this.structure) return;
+    const points = this.mode === "transcript" ? this.overall : this.structure.atoms.map((atom) => atom.xyz);
+    const center = new THREE.Box3().setFromPoints(points).getCenter(this.controls.target);
+    const direction = new THREE.Vector3(1, .35, .04).normalize();
+    const right = new THREE.Vector3().crossVectors(this.camera.up, direction).normalize();
+    const vertical = new THREE.Vector3().crossVectors(direction, right);
+    const tanVertical = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+    const tanHorizontal = tanVertical * this.camera.aspect;
+    const delta = new THREE.Vector3();
+    let radius = 9;
+    for (const point of points) {
+      delta.subVectors(point, center);
+      const projected = Math.max(Math.abs(right.dot(delta)) / tanHorizontal, Math.abs(vertical.dot(delta)) / tanVertical);
+      radius = Math.max(radius, projected + delta.dot(direction));
     }
-    this.setHovered(best);
+    this.camera.position.copy(center).addScaledVector(direction, radius * 1.20 + 4);
+    this.controls.update();
+    this.draw();
   }
 
   draw() {
-    const { canvas, context: ctx } = this;
-    const { clientWidth: w, clientHeight: h } = canvas;
-    if (!ctx || !w || !h) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
+    if (this.camera.aspect && this.canvas.clientHeight) this.renderer.render(this.scene, this.camera);
+  }
+
+  zoom(factor) {
+    this.camera.position.sub(this.controls.target).multiplyScalar(factor).add(this.controls.target);
+    this.controls.update();
+    this.draw();
+  }
+
+  keyboard(event) {
+    if (["+", "=", "-"].includes(event.key)) {
+      event.preventDefault();
+      this.zoom(event.key === "-" ? 1.23 : .81);
+      return;
     }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-    this.picks = [];
-    if (!this.strands.length) return;
+    const angles = {ArrowLeft: [-.14, 0], ArrowRight: [.14, 0], ArrowUp: [0, -.14], ArrowDown: [0, .14]};
+    const movement = angles[event.key];
+    if (!movement) return;
+    event.preventDefault();
+    const delta = this.camera.position.clone().sub(this.controls.target);
+    const spherical = new THREE.Spherical().setFromVector3(delta);
+    spherical.theta += movement[0];
+    spherical.phi += movement[1];
+    this.camera.position.setFromSpherical(spherical.makeSafe()).add(this.controls.target);
+    this.controls.update();
+  }
 
-    const scale = this.zoom * Math.min(w / (this.span + 34), h / 48);
-    const ca = Math.cos(this.angle), sa = Math.sin(this.angle);
-    const ct = Math.cos(this.tilt), st = Math.sin(this.tilt);
-    const project = ([x, y, z]) => {
-      const horizontal = z - this.center;
-      const vertical = x * sa + y * ca;
-      return [
-        w / 2 + this.panX + scale * (horizontal * ct - vertical * st),
-        h / 2 + this.panY + scale * (horizontal * st + vertical * ct),
-        x * ca - y * sa,
-      ];
-    };
-
-    const [a, b] = this.strands.map((strand, chain) => strand.map((residue, index) => ({
-      ...residue,
-      key: `${chain}:${index}`,
-      p: project(residue.P),
-      n: project(residue.N1),
-    })));
-
-    // Depth runs over the helix radius, so normalise against the widest atom.
-    const depths = [...a, ...b].map(({ p }) => p[2]);
-    const near = Math.max(...depths), far = Math.min(...depths);
-    const nearness = (z) => (near === far ? 1 : 0.34 + 0.66 * ((z - far) / (near - far)));
-
-    const layers = [];
-    const paint = (z, fn) => layers.push([z, fn]);
-    const stroke = (from, to, color, width, alpha) => {
-      const z = (from[2] + to[2]) / 2;
-      paint(z, () => {
-        ctx.globalAlpha = alpha;
-        ctx.strokeStyle = shade(color, nearness(z));
-        ctx.lineWidth = Math.max(0.6, width * scale * 0.11);
-        ctx.beginPath();
-        ctx.moveTo(from[0], from[1]);
-        ctx.lineTo(to[0], to[1]);
-        ctx.stroke();
-      });
-    };
-
-    // Base pairs, drawn only across the bound window. G:C gets the heavier rung.
-    a.forEach((residue, i) => {
-      const partner = b[this.flank5 + this.sequence.length - 1 - i];
-      if (!partner) return;
-      const gc = "GC".includes(this.sequence[i]);
-      stroke(residue.n, partner.n, COLORS.pair, gc ? 1.5 : 0.95, gc ? 0.66 : 0.4);
-    });
-
-    for (const strand of [a, b]) {
-      strand.forEach((residue, i) => {
-        const { p, n, color } = residue;
-        stroke(p, n, color, residue.paired === false ? 1.1 : 1.5,
-          residue.paired === false ? 0.32 : 0.6);
-        if (i) {
-          const previous = strand[i - 1];
-          stroke(previous.p, p, color, 3.1, 0.95);
-          // Phosphorothioate linkages carry a marker at the backbone midpoint.
-          if (previous.thio && scale * 0.24 >= 1.3) {
-            const z = (previous.p[2] + p[2]) / 2;
-            paint(z + 0.01, () => {
-              ctx.globalAlpha = 0.9;
-              ctx.fillStyle = shade("#ffd9a8", nearness(z));
-              const mx = (previous.p[0] + p[0]) / 2;
-              const my = (previous.p[1] + p[1]) / 2;
-              const r = Math.max(1.5, scale * 0.24);
-              ctx.beginPath();
-              ctx.moveTo(mx, my - r);
-              ctx.lineTo(mx + r, my);
-              ctx.lineTo(mx, my + r);
-              ctx.lineTo(mx - r, my);
-              ctx.closePath();
-              ctx.fill();
-            });
-          }
-        }
-        const radius = Math.max(1.6, scale * 0.52 * (0.72 + 0.4 * nearness(p[2])));
-        this.picks.push({ ...residue, x: p[0], y: p[1], r: radius });
-        const lit = this.hovered?.key === residue.key;
-        paint(p[2], () => {
-          ctx.globalAlpha = 1;
-          ctx.fillStyle = shade(color, nearness(p[2]));
-          ctx.beginPath();
-          ctx.arc(p[0], p[1], radius, 0, 2 * Math.PI);
-          ctx.fill();
-          if (lit) {
-            ctx.globalAlpha = 1;
-            ctx.strokeStyle = "#ffffff";
-            ctx.lineWidth = 2;
-            ctx.stroke();
-          }
-        });
-      });
-    }
-
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    layers.sort((left, right) => left[0] - right[0]).forEach(([, fn]) => fn());
-    ctx.globalAlpha = 1;
+  selectAtom(event) {
+    if (!this.atoms) return;
+    const rect = this.canvas.getBoundingClientRect();
+    this.pointer.set(2 * (event.clientX - rect.left) / rect.width - 1, 1 - 2 * (event.clientY - rect.top) / rect.height);
+    this.pick.setFromCamera(this.pointer, this.camera);
+    this.atoms.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 29);
+    const [hit] = this.pick.intersectObject(this.atoms);
+    if (!hit) return;
+    const atom = this.structure.atoms[hit.instanceId];
+    this.onPick(atom);
   }
 }

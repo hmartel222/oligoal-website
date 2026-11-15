@@ -57,12 +57,19 @@ Its evaluation scope is distinct from a locked multi-target PPO benchmark.
 
 ## Duplex viewing and PyMOL
 
-Select any candidate for a rotatable browser view of the idealized duplex and
-an antiparallel alignment with the exact target window. The browser renderer
-uses the same coordinate data as the exported PDB, with no CDN or account.
-Chain A is the gapmer and chain B is the complementary RNA window. The
-pseudo-atom coordinates illustrate pairing and chemistry domains. They are
-independent of predicted binding geometry or affinity.
+Select a candidate on Design or open **Molecular structure** in Bench. Zoom,
+pan, rotate, or select a heavy atom for its coordinates. Switch between ball
+and stick and space-filling, pause the motion preview, or expand the viewer.
+**Full transcript** represents all nucleotides as a schematic trace with the
+short ASO bound at its actual coordinates on the selected transcript. The
+binding site uses a template-built heavy-atom model. The rest of the transcript
+has no inferred 3D fold. The motion preview is an illustrative animation.
+
+The site serves the pinned Three.js 0.179.1 renderer locally. Chain A is the
+gapmer and chain B is the complementary window in both structure downloads.
+The nucleotide geometry is derived from [PDB 1FIX](https://www.rcsb.org/structure/1FIX)
+and the [wwPDB Chemical Component Dictionary](https://www.wwpdb.org/data/ccd).
+Modified sugar and phosphorothioate conformations are approximate.
 
 For desktop PyMOL, download the self-contained **PyMOL script** and run
 `@/path/to/aso-duplex.pml` from the PyMOL command line, using the actual

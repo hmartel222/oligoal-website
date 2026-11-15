@@ -11,7 +11,8 @@
   <meta name="theme-color" content="#0c2f34">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/bench.css">
-  <script type="module" src="/bench.js"></script>
+  <link rel="stylesheet" href="/molecule.css">
+  <script type="module" src="/bench.js?v=4"></script>
 </head>
 <body>
   <header class="top">
@@ -65,6 +66,10 @@
               <div><h2 id="selected-sequence"></h2><p id="selected-site" class="muted"></p></div>
               <button id="add-result" type="button" class="primary">Log a result</button>
             </div>
+            <details id="candidate-structure">
+              <summary>Molecular structure</summary>
+              <molecule-view id="bench-molecule"></molecule-view>
+            </details>
             <dl id="predictions"></dl>
             <details><summary>HELM</summary><code id="helm"></code></details>
             <h3>Measured results</h3>

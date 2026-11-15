@@ -8,8 +8,9 @@
   <link rel="icon" href="/favicon.png" type="image/png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#0c2f34">
-  <link rel="stylesheet" href="styles.css">
-  <script type="module" src="app.js?v=3"></script>
+  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="/molecule.css">
+  <script type="module" src="app.js?v=4"></script>
 </head>
 <body>
   <header class="top">
@@ -75,26 +76,9 @@
             <h2 id="detail-title">Candidate</h2>
             <p id="detail-site"></p>
           </div>
-          <div class="view-controls">
-            <button type="button" id="zoom-out" class="secondary icon-button" aria-label="Zoom out">&minus;</button>
-            <button type="button" id="zoom-in" class="secondary icon-button" aria-label="Zoom in">+</button>
-            <button type="button" id="reset-view" class="secondary">Reset view</button>
-          </div>
         </div>
-        <div id="structure-stage" class="structure-stage">
-          <canvas id="viewer" tabindex="0" role="img" aria-label="Idealized ASO and target RNA duplex; arrow keys rotate"></canvas>
-          <p id="viewer-status" role="status" hidden></p>
-          <p id="viewer-readout" class="readout" role="status"></p>
-          <div class="legend" aria-hidden="true">
-            <span class="wing">MOE / OMe wings</span><span class="core">DNA core</span><span class="rna">Target window</span><span class="flank">Flanking transcript</span><span class="thio">Phosphorothioate</span>
-          </div>
-        </div>
-        <p class="structure-note">Drag or use arrow keys to rotate, scroll or pinch to zoom, shift-drag to pan. Hover a residue for its HELM backbone chemistry. Idealized base pairing, with G–C pairs shown brighter; the flanking transcript is unpaired and drawn only to show where the oligo binds.</p>
+        <molecule-view id="design-molecule"></molecule-view>
         <pre id="alignment" class="alignment" aria-label="Antiparallel sequence alignment"></pre>
-        <div class="exports">
-          <a id="pml-link" class="secondary" download>Download PyMOL script</a>
-          <a id="pdb-link" class="secondary" download>Download PDB</a>
-        </div>
         <h3>Endpoint predictions</h3>
         <dl id="predictions"></dl>
         <details class="chemistry-detail">

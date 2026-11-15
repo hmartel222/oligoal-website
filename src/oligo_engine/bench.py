@@ -11,7 +11,6 @@ from math import isfinite
 from pathlib import Path
 import secrets
 import sqlite3
-import sys
 from threading import Lock
 from time import monotonic, time
 from uuid import uuid4
@@ -209,14 +208,8 @@ class Bench:
         if (directory.stat().st_mode | secret.stat().st_mode) & 0o077:
             raise ValueError("Restrict the Bench directory to mode 0700 and the access-key to mode 0600.")
         self.key = secret.read_text().strip()
-        if len(self.key) < 8:
-            raise ValueError("Bench access key must have at least 8 characters.")
         if len(self.key) < 32:
-            print(
-                "WARNING: the Bench access key is short. Use at least 32 random "
-                "characters for anything beyond a supervised demo.",
-                file=sys.stderr,
-            )
+            raise ValueError("Bench access key must have at least 32 characters.")
         self.database = directory / "workspace.sqlite3"
         self.drafts: OrderedDict = OrderedDict()
         self.lock = Lock()
