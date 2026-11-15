@@ -54,14 +54,28 @@ def duplex_pdb(
     title: str = "designed ASO",
     *,
     target_window: str | None = None,
+    flank5: str = "",
+    flank3: str = "",
 ) -> str:
-    """Return PDB text for the ASO (chain A) paired with its target RNA (chain B)."""
+    """Return PDB text for the ASO (chain A) paired with its target RNA (chain B).
+
+    ``flank5`` and ``flank3`` are the transcript bases immediately 5' and 3' of the
+    binding window. They are written as part of chain B so the picture shows a short
+    ASO bound to a longer mRNA rather than a blunt duplex. Those bases are unpaired
+    in reality; the helical path is continued through them purely to place them, and
+    a REMARK records that.
+    """
     if not sequence or set(sequence) - PAIR.keys():
         raise ValueError("A nucleotide sequence is required")
     expected = "".join(PAIR[base] for base in reversed(sequence))
     target = expected if target_window is None else target_window.replace("T", "U")
     if target != expected:
         raise ValueError("The ASO does not complement the supplied target window.")
+    flank5 = flank5.upper().replace("T", "U")
+    flank3 = flank3.upper().replace("T", "U")
+    for flank in (flank5, flank3):
+        if set(flank) - set("ACGUN"):
+            raise ValueError("Transcript flanks must be RNA bases.")
     length = len(sequence)
     title = " ".join(title.split()).encode("ascii", "replace").decode()
     lines = [
@@ -74,6 +88,14 @@ def duplex_pdb(
         f"REMARK   2 DNA core {length - wing5 - wing3} monomers; chain A is the ASO,",
         "REMARK   2 chain B the complementary target RNA, antiparallel.",
     ]
+    if flank5 or flank3:
+        lines += [
+            f"REMARK   3 CHAIN B CARRIES {len(flank5)} TRANSCRIPT BASES 5' AND",
+            f"REMARK   3 {len(flank3)} BASES 3' OF THE BINDING WINDOW. Those flanks are",
+            "REMARK   3 single stranded in reality. The A-form path is continued",
+            "REMARK   3 through them only to position them; their conformation here",
+            "REMARK   3 carries no meaning at all.",
+        ]
     serial = 1
     for index, base in enumerate(sequence):
         angle = index * TWIST
@@ -100,9 +122,11 @@ def duplex_pdb(
             )
             serial += 1
     # Chain B runs antiparallel: residue i of B pairs with residue (length-1-i) of A.
-    for index in range(length):
-        partner = length - 1 - index
-        base = target[index]
+    rna = flank5 + target + flank3
+    for index, base in enumerate(rna):
+        # Pairing position on the chain A axis; negative and over-length values
+        # place the unpaired flanks beyond either end of the duplex.
+        partner = length - 1 + len(flank5) - index
         angle = partner * TWIST + STRAND_OFFSET
         height = partner * RISE
         residue = _residue_name(base, "B", False, chemistry)
@@ -125,12 +149,12 @@ def duplex_pdb(
                 )
             )
             serial += 1
-    for start in (1, 1 + 3 * length):
-        for index in range(length):
+    for start, residues in ((1, length), (1 + 3 * length, len(rna))):
+        for index in range(residues):
             phosphate = start + 3 * index
             lines.append(f"CONECT{phosphate:>5}{phosphate + 1:>5}")
             lines.append(f"CONECT{phosphate + 1:>5}{phosphate + 2:>5}")
-            if index + 1 < length:
+            if index + 1 < residues:
                 lines.append(f"CONECT{phosphate:>5}{phosphate + 3:>5}")
     lines.append("END")
     return "\n".join(lines) + "\n"

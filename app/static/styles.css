@@ -74,6 +74,12 @@ canvas:active { cursor: grabbing; }
 .wing::before { background: #6ed9b2; }
 .core::before { background: #60a8fa; }
 .rna::before { background: #f7ab64; }
+.flank::before { background: #8d8f7f; }
+.thio::before { background: #ffd9a8; border-radius: 0; transform: rotate(45deg); }
+.view-controls { display: flex; gap: 6px; align-items: center; }
+.icon-button { font-size: 15px; line-height: 1; padding: 6px 11px; }
+.readout { position: absolute; inset: auto auto 12px 14px; margin: 0; color: #eaf4f5; font: 11px/1.4 var(--mono); background: rgba(6, 26, 29, .78); padding: 5px 9px; border-radius: 5px; pointer-events: none; opacity: 0; transition: opacity .12s; max-width: calc(100% - 28px); }
+.readout.visible { opacity: 1; }
 .structure-note, .footnote { color: var(--muted); font-size: 12px; margin-top: 8px; line-height: 1.45; }
 .alignment { font: 11px/1.55 var(--mono); color: #20383c; background: #f1f6f6; padding: 8px; border-radius: 5px; overflow-x: auto; margin: 10px 0; }
 .exports { display: flex; gap: 8px; flex-wrap: wrap; }

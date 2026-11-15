@@ -46,6 +46,8 @@ OME = "ps_2ome_gapmer"
 RADIUS = HORIZON = 8
 REGIONS = 8
 MAX_TRANSCRIPT = 100_000
+# Transcript bases drawn either side of the binding window in the duplex viewer.
+MAX_FLANK = 12
 MAX_BODY = 110_000
 # OligoGym deployment models do not use user-supplied assay covariates.
 # The session requires a fixed context; these sentinel values never reach a model.
@@ -132,6 +134,30 @@ def resolve_transcript(gene: str, sequence: str = "") -> Transcript:
     return Transcript(
         gene, "pasted-" + identity(bases)[:10], bases, "supplied", "pasted"
     )
+
+
+def with_flanks(rows: list[dict], transcript: str) -> list[dict]:
+    """Attach the transcript bases on either side of each binding window.
+
+    The viewer draws these so the ASO appears bound to a stretch of mRNA rather
+    than to a duplex its own length. Windows near either end of the transcript
+    simply get a shorter flank.
+    """
+    out = []
+    for row in rows:
+        start = row.get("start")
+        width = len(row.get("sequence", ""))
+        if not isinstance(start, int) or not width:
+            out.append(row)
+            continue
+        before = transcript[max(0, start - MAX_FLANK) : start]
+        after = transcript[start + width : start + width + MAX_FLANK]
+        out.append({
+            **row,
+            "flank5": before.replace("T", "U"),
+            "flank3": after.replace("T", "U"),
+        })
+    return out
 
 
 def design_spaces(target: TargetContext) -> list[ASODesignSpace]:
@@ -296,7 +322,7 @@ def panel(
         "chemistry": chemistry,
         "design": design.DESIGNS[chemistry],
         "summary": {**summary, "ranked_count": len(rows), "model_version": model_version},
-        "rows": rows if full else rows[:limit],
+        "rows": with_flanks(rows if full else rows[:limit], target.sequence),
         "endpoints": {
             key: {
                 "title": title,
@@ -364,6 +390,13 @@ def structure(params: dict[str, str]) -> tuple[str, str, str | None]:
     if len(sequence) != template["length"] or set(sequence) - set("ACGT"):
         raise ValueError("ASO sequence does not match the design template.")
     target = target or design.reverse_complement(sequence).replace("T", "U")
+
+    def flank(name: str) -> str:
+        value = params.get(name, "").upper().replace("T", "U")
+        if set(value) - set("ACGUN"):
+            raise ValueError("Transcript flanks must be RNA bases.")
+        return value[:MAX_FLANK]
+
     pdb = duplex_pdb(
         sequence,
         chemistry,
@@ -371,6 +404,8 @@ def structure(params: dict[str, str]) -> tuple[str, str, str | None]:
         template["wing3"],
         "ASO-RNA duplex",
         target_window=target,
+        flank5=flank("flank5"),
+        flank3=flank("flank3"),
     )
     kind = params.get("format", "pdb")
     if kind == "pml":

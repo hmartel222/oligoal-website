@@ -1,7 +1,13 @@
 import { DuplexView } from "./duplex.js";
 
 const $ = (id) => document.getElementById(id);
-const viewer = new DuplexView($("viewer"));
+const viewer = new DuplexView($("viewer"), {
+  onHover(pick) {
+    const readout = $("viewer-readout");
+    readout.textContent = pick ? `${pick.label} — ${pick.detail}` : "";
+    readout.classList.toggle("visible", Boolean(pick));
+  },
+});
 let runVersion = 0;
 let currentRun;
 let structureRequest;
@@ -177,7 +183,11 @@ async function select(index) {
     values.append(definition);
   }
   $("predictions").replaceChildren(values);
-  const params = new URLSearchParams({ sequence: row.sequence, target: rna, chemistry: row.chemistry });
+  const flank5 = row.flank5 || "";
+  const flank3 = row.flank3 || "";
+  const params = new URLSearchParams({
+    sequence: row.sequence, target: rna, chemistry: row.chemistry, flank5, flank3,
+  });
   const filename = `${profile.transcript.gene.replace(/[^a-z0-9._-]/gi, "_")}-${row.start + 1}`;
   $("pdb-link").href = `/api/structure?${params}&download=1`;
   $("pdb-link").download = `${filename}.pdb`;
@@ -190,7 +200,7 @@ async function select(index) {
     if (!response.ok) throw new Error("Could not load the duplex.");
     const pdb = await response.text();
     if (version !== runVersion || request !== structureRequest) return;
-    viewer.load(pdb, row.sequence, profile.design);
+    viewer.load(pdb, row.sequence, profile.design, { helm: row.helm, flank5, flank3 });
     showViewerStatus("");
   } catch (error) {
     if (error.name !== "AbortError" && version === runVersion && request === structureRequest) {
@@ -201,6 +211,8 @@ async function select(index) {
 
 $("design-form").addEventListener("submit", run);
 $("reset-view").addEventListener("click", () => viewer.reset());
+$("zoom-in").addEventListener("click", () => viewer.zoomBy(1.25));
+$("zoom-out").addEventListener("click", () => viewer.zoomBy(1 / 1.25));
 
 function download(blob, filename) {
   const url = URL.createObjectURL(blob);
