@@ -34,7 +34,11 @@ export PYTHONPATH="$PWD/src:$PWD/vendor/OligoGym"
 
 The Dockerfile targets Linux x86-64. It starts the API and serves the
 frontend on the same port. Set `PORT` if your host supplies a port.
-Allow startup time for the OligoGym model fits.
+Allow startup time for the OligoGym model fits. A fresh macOS checkout
+took about 94 seconds to fit and score both chemistry panels, with a peak
+resident memory of 3.3 GiB. Measure the Linux container before choosing an
+instance size. Render's free web service has a 512 MB limit.
+[Render compute plans](https://render.com/docs/compute-plans)
 
 ```sh
 docker build --platform linux/amd64 -t oligoal-website .
