@@ -1,0 +1,23 @@
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.15.3
+scikit-learn==1.4.0
+gymnasium==1.1.1
+stable-baselines3==2.6.0
+sb3-contrib==2.6.0
+torch==2.3.1
+pytorch-lightning==2.2.1
+torch-geometric==2.6.1
+torchinfo==1.8.0
+catboost==1.2.8
+tabpfn==2.0.9
+xgboost==3.2.0
+viennarna==2.8.0
+python-levenshtein==0.27.5
+biopython==1.88
+networkx==3.6.1
+seaborn==0.13.2
+requests==2.34.2
+tqdm==4.70.1
+# PyTorch Lightning 2.2.1 imports pkg_resources at startup.
+setuptools==80.10.2

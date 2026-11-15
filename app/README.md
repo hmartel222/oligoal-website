@@ -1,0 +1,64 @@
+# OligoAL ASO workbench
+
+Run locally from the repo root with Python 3.11, the `science` and `rl` Poetry
+groups, and the pinned OligoGym checkout importable in that environment. See
+[upstream setup](../docs/upstream-verification.md) and
+[RL execution](../docs/aso-rl-execution.md) for the pinned versions.
+
+```sh
+poetry run python app/server.py --port 8000
+```
+
+Open [localhost:8000](http://127.0.0.1:8000), enter a human gene symbol, and
+run the design. Gene lookup uses Ensembl and caches the resulting cDNA. Paste
+a transcript to work offline. Each run resolves its own transcript and
+replaces the results. CSV exports the rows from that run.
+
+## Design and model coverage
+
+- **2′-MOE** uses the actual `ASODesignSpace`, `ASOEnv`, and frozen scoring session.
+  It explores bounded windows across the transcript and ranks visited candidates
+  by the ASOptimizer GP's predicted knockdown. The MOE GP reports its acute
+  neurotoxicity estimate as an advisory result. The server fits the exploratory
+  deployment models once from the released labels. Those fits and this interface
+  are separate from split-bound scientific benchmarks.
+- **2′-OMe immune panel** uses the TLR7 RF and TLR8 GP on matching molecules.
+  The panel ranks by distance from the TLR8 assay control and reports both
+  reporter responses separately. The current Gymnasium environment supports MOE.
+- IC₅₀, hepatotoxicity, and the Atlas inference bundle remain unavailable here.
+  The Atlas model code/results are separate from the missing loadable fitted
+  artifact. Knockdown is displayed as percent inhibition.
+
+## Exploratory PPO policy
+
+With no policy, the MOE path traverses legal moves in the same environment.
+To train an exploratory policy locally from the existing knockdown scorer:
+
+```sh
+poetry run python app/server.py --train-policy artifacts/aso-app-policy
+poetry run python app/server.py --port 8000
+```
+
+Training downloads the HTT and APP transcripts for its separate training and
+validation environments. Override them with `--training-gene` and
+`--validation-gene`. The server detects this ignored artifact directory, or
+accepts `--policy PATH` for a trusted checkpoint and manifest. Policy loading
+validates the hash and scorer/action/observation compatibility. The UI reports
+which method ran. This small exploratory fit establishes pipeline execution.
+Its evaluation scope is distinct from a locked multi-target PPO benchmark.
+
+## Duplex viewing and PyMOL
+
+Select any candidate for a rotatable browser view of the idealized duplex and
+an antiparallel alignment with the exact target window. The browser renderer
+uses the same coordinate data as the exported PDB, with no CDN or account.
+Chain A is the gapmer and chain B is the complementary RNA window. The
+pseudo-atom coordinates illustrate pairing and chemistry domains. They are
+independent of predicted binding geometry or affinity.
+
+For desktop PyMOL, download the self-contained **PyMOL script** and run
+`@/path/to/aso-duplex.pml` from the PyMOL command line, using the actual
+downloaded filename. It loads and styles both strands. The PDB can also be
+opened directly in any PDB viewer. [Open-source PyMOL](https://github.com/schrodinger/pymol-open-source)
+can read both files. The commercial [PyMOL distribution](https://pymol.org/)
+has its own licensing. The workbench needs no PyMOL credentials.

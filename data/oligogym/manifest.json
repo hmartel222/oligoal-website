@@ -1,0 +1,284 @@
+{
+  "schema_version": "1",
+  "upstream_revision": "97f5b9f58d9e445a8ecb0218037af7465c3708c0",
+  "upstream_url": "https://github.com/Roche/OligoGym",
+  "source_directory": "oligogym/resources/pkg_dataset",
+  "collection": "Released processed benchmark data; source bytes unchanged",
+  "files": {
+    "Alharbi_2020_1_processed.csv.gz": {
+      "sha256": "7d8f4c22925a9664f4b972259dec38d03958cb97a3f6e1faf22fd524ef0c5b22",
+      "bytes": 11164,
+      "upstream_path": "oligogym/resources/pkg_dataset/Alharbi_2020_1_processed.csv.gz"
+    },
+    "Alharbi_2020_1_processed.json": {
+      "sha256": "c3470f4a48de7e78bb139c1735daecb755a0f122219358e7057d6df1803b86b9",
+      "bytes": 690,
+      "upstream_path": "oligogym/resources/pkg_dataset/Alharbi_2020_1_processed.json"
+    },
+    "Alharbi_2020_2_processed.csv.gz": {
+      "sha256": "1639222a05b39b6cecc123d6eedf85f388a8b369cee6d8fc9350a23d87125934",
+      "bytes": 11465,
+      "upstream_path": "oligogym/resources/pkg_dataset/Alharbi_2020_2_processed.csv.gz"
+    },
+    "Alharbi_2020_2_processed.json": {
+      "sha256": "576109bf95466c63a6f225102676f105132da9889ca633c8f41ab46bad885f54",
+      "bytes": 688,
+      "upstream_path": "oligogym/resources/pkg_dataset/Alharbi_2020_2_processed.json"
+    },
+    "Hagedorn_2022_1_processed.csv.gz": {
+      "sha256": "c7d4268c7f57ec707e8c8561ce9da0c0b7eefbb3c1c6463965874ce49d4ba6dc",
+      "bytes": 101688,
+      "upstream_path": "oligogym/resources/pkg_dataset/Hagedorn_2022_1_processed.csv.gz"
+    },
+    "Hagedorn_2022_1_processed.json": {
+      "sha256": "9fab1aaea491da1487806c217dc9ad33bad6996ee75d26b9d61dc260366f628e",
+      "bytes": 548,
+      "upstream_path": "oligogym/resources/pkg_dataset/Hagedorn_2022_1_processed.json"
+    },
+    "Hwang_2024_1_processed.csv.gz": {
+      "sha256": "9508beacae39f58b33a87cec0837ef6029102b82497782b83eb734dbcf4bfc79",
+      "bytes": 1646123,
+      "upstream_path": "oligogym/resources/pkg_dataset/Hwang_2024_1_processed.csv.gz"
+    },
+    "Hwang_2024_1_processed.json": {
+      "sha256": "2c41307492d186afa4ed8da5fff6ee60611510340895bbd8b1fead65bf9d974a",
+      "bytes": 624,
+      "upstream_path": "oligogym/resources/pkg_dataset/Hwang_2024_1_processed.json"
+    },
+    "Ichihara_2007_1_processed.csv.gz": {
+      "sha256": "737f8e4b8d908f9663f8cc84a96c52945891d9d201f7e2de53e3e6f784ee568d",
+      "bytes": 213655,
+      "upstream_path": "oligogym/resources/pkg_dataset/Ichihara_2007_1_processed.csv.gz"
+    },
+    "Ichihara_2007_1_processed.json": {
+      "sha256": "ea88bf2f7ab9634699666f6c76e138da2b309a1502fba23817bf1319abcb3b92",
+      "bytes": 708,
+      "upstream_path": "oligogym/resources/pkg_dataset/Ichihara_2007_1_processed.json"
+    },
+    "Ichihara_2007_2_processed.csv.gz": {
+      "sha256": "8e1eb1436869150888202d3d4eb745fc309517932e766f2eda7110230f43518c",
+      "bytes": 38933,
+      "upstream_path": "oligogym/resources/pkg_dataset/Ichihara_2007_2_processed.csv.gz"
+    },
+    "Ichihara_2007_2_processed.json": {
+      "sha256": "839cc6679977e3d0d10d2e3dc60f2717d74c7346e47adb3803b70de0cc70d0b2",
+      "bytes": 778,
+      "upstream_path": "oligogym/resources/pkg_dataset/Ichihara_2007_2_processed.json"
+    },
+    "Knott_2014_1_processed.csv.gz": {
+      "sha256": "a3849a9af2b634d90d160a2e2829589b25e41ad25e5b54dbcd6b72fefab0f89e",
+      "bytes": 15909520,
+      "upstream_path": "oligogym/resources/pkg_dataset/Knott_2014_1_processed.csv.gz"
+    },
+    "Knott_2014_1_processed.json": {
+      "sha256": "7702b2f3c0ac5158918d2c96f26edaa654a4001aab0b65aedd3183f8d8a8a1e0",
+      "bytes": 776,
+      "upstream_path": "oligogym/resources/pkg_dataset/Knott_2014_1_processed.json"
+    },
+    "MOE_Neurotox_1_processed.csv.gz": {
+      "sha256": "edc615a6642656e0faeef478711b4453376da8981744bedfa60544ff124a9f50",
+      "bytes": 115842,
+      "upstream_path": "oligogym/resources/pkg_dataset/MOE_Neurotox_1_processed.csv.gz"
+    },
+    "MOE_Neurotox_1_processed.json": {
+      "sha256": "fabd87b4dc5f1b304380d59e4f8dfc1f3ff38eadafb86fda3905776094302b54",
+      "bytes": 1327,
+      "upstream_path": "oligogym/resources/pkg_dataset/MOE_Neurotox_1_processed.json"
+    },
+    "Martinelli_2023_1_processed.csv.gz": {
+      "sha256": "322e589a1372162ff15062bd93077f1279f788d5bd9f41c0e4fe82a94d551d9e",
+      "bytes": 93154,
+      "upstream_path": "oligogym/resources/pkg_dataset/Martinelli_2023_1_processed.csv.gz"
+    },
+    "Martinelli_2023_1_processed.json": {
+      "sha256": "77af28d2288d8d45e6d1b1634ea6b1df2abc98a87375b81386ad54f0107a4c5d",
+      "bytes": 572,
+      "upstream_path": "oligogym/resources/pkg_dataset/Martinelli_2023_1_processed.json"
+    },
+    "McQuisten_2007_1_processed.csv.gz": {
+      "sha256": "e6bd0de1f01552d4a4fbc018cba6f73c73961e372e10d089cbabee2a8bc73896",
+      "bytes": 175208,
+      "upstream_path": "oligogym/resources/pkg_dataset/McQuisten_2007_1_processed.csv.gz"
+    },
+    "McQuisten_2007_1_processed.json": {
+      "sha256": "5aedb0047fbaaac959fd2fbda89eba96a79a09694147e72e14b674291d7359f3",
+      "bytes": 976,
+      "upstream_path": "oligogym/resources/pkg_dataset/McQuisten_2007_1_processed.json"
+    },
+    "Papargyri_2020_1_processed.csv.gz": {
+      "sha256": "e2a131f8a10f84d1402ee2fa9f998b6c82ba26032d38efee9a71c3082b27d1bb",
+      "bytes": 33903,
+      "upstream_path": "oligogym/resources/pkg_dataset/Papargyri_2020_1_processed.csv.gz"
+    },
+    "Papargyri_2020_1_processed.json": {
+      "sha256": "d9711c19934a65ec89eda975d6b6e612ec6f7c139c07972df11b5bb9b3e63068",
+      "bytes": 620,
+      "upstream_path": "oligogym/resources/pkg_dataset/Papargyri_2020_1_processed.json"
+    },
+    "Shmushkovich_2018_1_processed.csv.gz": {
+      "sha256": "89c213c372fe50d5296e8733b2bb3e1ecca24560ed524226309a0989018dd873",
+      "bytes": 33961,
+      "upstream_path": "oligogym/resources/pkg_dataset/Shmushkovich_2018_1_processed.csv.gz"
+    },
+    "Shmushkovich_2018_1_processed.json": {
+      "sha256": "106aed9a5e2c34eb3d2d85f5b2b029fd8b4a463b188a5635bea3adc199b45b35",
+      "bytes": 659,
+      "upstream_path": "oligogym/resources/pkg_dataset/Shmushkovich_2018_1_processed.json"
+    },
+    "all_datasets_info.csv.gz": {
+      "sha256": "8c066d69eb46b8839efbedef3a8a6591ad3e427c26df12594f37634b1f666968",
+      "bytes": 1944,
+      "upstream_path": "oligogym/resources/pkg_dataset/all_datasets_info.csv.gz"
+    },
+    "LICENSE.upstream.md": {
+      "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+      "bytes": 11356,
+      "upstream_path": "LICENSE.md"
+    }
+  },
+  "datasets": [
+    {
+      "key": "Ichihara",
+      "name": "Ichihara_2007_2",
+      "benchmark_alias": "siRNA2",
+      "rows": 419,
+      "modality": "siRNA",
+      "collection": "Activity",
+      "data_file": "Ichihara_2007_2_processed.csv.gz",
+      "metadata_file": "Ichihara_2007_2_processed.json",
+      "caveats": []
+    },
+    {
+      "key": "TLR8",
+      "name": "Alharbi_2020_2",
+      "benchmark_alias": "immune_modulation_TLR8",
+      "rows": 192,
+      "modality": "ASO",
+      "collection": "Immunomodulation",
+      "data_file": "Alharbi_2020_2_processed.csv.gz",
+      "metadata_file": "Alharbi_2020_2_processed.json",
+      "caveats": [
+        "Upstream TLR key and assay description disagree; do not relabel the assay."
+      ]
+    },
+    {
+      "key": "Shmushkovich",
+      "name": "Shmushkovich_2018_1",
+      "benchmark_alias": "siRNA3",
+      "rows": 356,
+      "modality": "siRNA",
+      "collection": "Activity",
+      "data_file": "Shmushkovich_2018_1_processed.csv.gz",
+      "metadata_file": "Shmushkovich_2018_1_processed.json",
+      "caveats": []
+    },
+    {
+      "key": "ASOptimizer",
+      "name": "Hwang_2024_1",
+      "benchmark_alias": "asoptimizer_cleaned",
+      "rows": 32602,
+      "modality": "ASO",
+      "collection": "Activity",
+      "data_file": "Hwang_2024_1_processed.csv.gz",
+      "metadata_file": "Hwang_2024_1_processed.json",
+      "caveats": []
+    },
+    {
+      "key": "Neurotox LNA",
+      "name": "Hagedorn_2022_1",
+      "benchmark_alias": "acute_neurotox_lna",
+      "rows": 1825,
+      "modality": "ASO",
+      "collection": "Toxicity",
+      "data_file": "Hagedorn_2022_1_processed.csv.gz",
+      "metadata_file": "Hagedorn_2022_1_processed.json",
+      "caveats": []
+    },
+    {
+      "key": "TLR7",
+      "name": "Alharbi_2020_1",
+      "benchmark_alias": "immune_modulation_TLR7",
+      "rows": 192,
+      "modality": "ASO",
+      "collection": "Immunomodulation",
+      "data_file": "Alharbi_2020_1_processed.csv.gz",
+      "metadata_file": "Alharbi_2020_1_processed.json",
+      "caveats": [
+        "Upstream TLR key and assay description disagree; do not relabel the assay."
+      ]
+    },
+    {
+      "key": "Huesken",
+      "name": "Ichihara_2007_1",
+      "benchmark_alias": "siRNA1",
+      "rows": 2431,
+      "modality": "siRNA",
+      "collection": "Activity",
+      "data_file": "Ichihara_2007_1_processed.csv.gz",
+      "metadata_file": "Ichihara_2007_1_processed.json",
+      "caveats": []
+    },
+    {
+      "key": "OpenASO",
+      "name": "McQuisten_2007_1",
+      "benchmark_alias": "openASO",
+      "rows": 3913,
+      "modality": "ASO",
+      "collection": "Activity",
+      "data_file": "McQuisten_2007_1_processed.csv.gz",
+      "metadata_file": "McQuisten_2007_1_processed.json",
+      "caveats": []
+    },
+    {
+      "key": "Cytotox LNA",
+      "name": "Papargyri_2020_1",
+      "benchmark_alias": "cytotox_lna",
+      "rows": 768,
+      "modality": "ASO",
+      "collection": "Toxicity",
+      "data_file": "Papargyri_2020_1_processed.csv.gz",
+      "metadata_file": "Papargyri_2020_1_processed.json",
+      "caveats": []
+    },
+    {
+      "key": "siRNAmod",
+      "name": "Martinelli_2023_1",
+      "benchmark_alias": "siRNAmod",
+      "rows": 907,
+      "modality": "siRNA",
+      "collection": "Activity",
+      "data_file": "Martinelli_2023_1_processed.csv.gz",
+      "metadata_file": "Martinelli_2023_1_processed.json",
+      "caveats": []
+    },
+    {
+      "key": "Neurotox MOE",
+      "name": "MOE_Neurotox_1",
+      "benchmark_alias": "acute_neurotox_moe_cleaned",
+      "rows": 2437,
+      "modality": "ASO",
+      "collection": "Acute Neurotoxicity",
+      "data_file": "MOE_Neurotox_1_processed.csv.gz",
+      "metadata_file": "MOE_Neurotox_1_processed.json",
+      "caveats": []
+    },
+    {
+      "key": "Sherwood",
+      "name": "Knott_2014_1",
+      "benchmark_alias": "sherwood",
+      "rows": 291551,
+      "modality": "shRNA",
+      "collection": "Activity",
+      "data_file": "Knott_2014_1_processed.csv.gz",
+      "metadata_file": "Knott_2014_1_processed.json",
+      "caveats": []
+    }
+  ],
+  "upstream_code_sha256": {
+    "oligogym/split.py": "b2f8e9feefd1bbdd1d39e8dc1ae480a09581ade99690f47d8d4bbf6a4ce76769",
+    "oligogym/features.py": "f990f97b59c554f4f49d1aceec518e9ac7f5a446efe1411bb34bed199bde7aef",
+    "oligogym/helm.py": "32a0fdccbc3b1b0e6e0591ccc90aeb1c4248d5051676e486c064641ab8afcc4d",
+    "oligogym/utils.py": "d835fe21b9352fcbbe1116e3f392d6dafc4aafbf0e9d83d253dbde1fc057ce8d",
+    "benchmarks/Analysis.ipynb": "d9357af6317671eb80a85317a256c46becd36411dba524f931121ec33bd9800e"
+  }
+}

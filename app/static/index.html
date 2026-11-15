@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OligoAL · ASO design</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="top">
+    <span class="brand">Oligo<span>AL</span></span>
+    <span class="top-divider" aria-hidden="true"></span>
+    <span class="product">ASO workbench</span>
+  </header>
+
+  <main>
+    <section class="setup" aria-labelledby="title">
+      <h1 id="title">Design antisense oligos</h1>
+      <form id="design-form">
+        <div class="form-grid">
+          <label>Human target gene
+            <input id="gene" name="gene" value="MAPT" autocomplete="off" spellcheck="false">
+          </label>
+          <label>Design profile
+            <select id="chemistry" name="chemistry">
+              <option value="ps_moe_gapmer">2′-MOE gapmer · 19 nt</option>
+              <option value="ps_2ome_gapmer">2′-OMe immune panel · 20 nt</option>
+            </select>
+          </label>
+          <button type="submit" id="run">Run design <span aria-hidden="true">→</span></button>
+        </div>
+        <details>
+          <summary>Use a transcript sequence</summary>
+          <label class="paste-label" for="pasted">Paste one cDNA or RNA sequence (raw or FASTA)</label>
+          <textarea id="pasted" name="sequence" rows="3" maxlength="110000" spellcheck="false"></textarea>
+        </details>
+      </form>
+      <p id="status" role="status" aria-live="polite" hidden></p>
+    </section>
+
+    <div id="workspace" class="workspace" hidden>
+      <section class="candidates" aria-labelledby="results-title">
+        <div class="section-head">
+          <div>
+            <h2 id="results-title">Candidates</h2>
+            <p id="provenance"></p>
+          </div>
+          <button type="button" id="download" class="secondary">Export CSV</button>
+        </div>
+        <p id="method" class="method"></p>
+        <div class="table-scroll">
+          <table aria-label="Ranked ASO candidates">
+            <thead id="results-head"></thead>
+            <tbody id="results-body"></tbody>
+          </table>
+        </div>
+        <p id="coverage" class="coverage"></p>
+      </section>
+
+      <section id="detail" class="detail" aria-labelledby="detail-title" hidden>
+        <div class="section-head detail-head">
+          <div>
+            <h2 id="detail-title">Candidate</h2>
+            <p id="detail-site"></p>
+          </div>
+          <button type="button" id="reset-view" class="secondary">Reset view</button>
+        </div>
+        <div id="structure-stage" class="structure-stage">
+          <canvas id="viewer" tabindex="0" role="img" aria-label="Idealized ASO and target RNA duplex; arrow keys rotate"></canvas>
+          <p id="viewer-status" role="status" hidden></p>
+          <div class="legend" aria-hidden="true">
+            <span class="wing">MOE / OMe wings</span><span class="core">DNA core</span><span class="rna">Target RNA</span>
+          </div>
+        </div>
+        <p class="structure-note">Drag or use arrow keys to rotate. Idealized base pairing, with G–C pairs shown brighter.</p>
+        <pre id="alignment" class="alignment" aria-label="Antiparallel sequence alignment"></pre>
+        <div class="exports">
+          <a id="pml-link" class="secondary" download>Download PyMOL script</a>
+          <a id="pdb-link" class="secondary" download>Download PDB</a>
+        </div>
+        <h3>Endpoint predictions</h3>
+        <dl id="predictions"></dl>
+        <details class="chemistry-detail">
+          <summary>HELM representation</summary>
+          <code id="helm"></code>
+        </details>
+      </section>
+    </div>
+    <p class="footnote">Research use · Candidates and endpoint predictions require experimental validation.</p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,50 @@
+[tool.poetry]
+name = "oligo-design-engine"
+version = "0.1.0"
+description = "Oligonucleotide active-learning research scaffold and replay contracts"
+packages = [{ include = "oligo_engine", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+
+[tool.poetry.group.science]
+optional = true
+
+[tool.poetry.group.science.dependencies]
+numpy = "1.26.4"
+scipy = "1.15.3"
+scikit-learn = "1.4.0"
+
+[tool.poetry.group.reporting]
+optional = true
+
+[tool.poetry.group.reporting.dependencies]
+matplotlib = "3.10.3"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.12.0"
+pytest = "^8.4.0"
+
+[tool.poetry.group.rl]
+optional = true
+
+[tool.poetry.group.rl.dependencies]
+gymnasium = "1.1.1"
+stable-baselines3 = "2.6.0"
+sb3-contrib = "2.6.0"
+torch = "2.3.1"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

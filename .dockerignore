@@ -1,0 +1,15 @@
+**
+!app/
+!app/**
+!data/
+!data/oligogym/
+!data/oligogym/**
+!scripts/
+!scripts/setup-oligogym.sh
+!src/
+!src/**
+!requirements-website.txt
+**/__pycache__/
+**/.DS_Store
+**/.env
+**/.env.*
