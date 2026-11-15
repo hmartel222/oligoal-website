@@ -10,6 +10,7 @@ from dataclasses import asdict
 from functools import lru_cache
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from research import Research
 from urllib.parse import parse_qs, urlsplit
 
 from oligo_engine.audit_upstream import PINNED_REVISION
@@ -415,6 +416,7 @@ class Handler(SimpleHTTPRequestHandler):
     policy: Path | None = None
     atlas_model: PortableEfficacy | None = None
     bench: Bench | None = None
+    research: Research | None = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC), **kwargs)
@@ -469,6 +471,8 @@ class Handler(SimpleHTTPRequestHandler):
                             "ppo_configured": self.policy is not None,
                             "atlas_efficacy_configured": self.atlas_model is not None,
                             "bench_configured": self.bench is not None,
+                            "research_models": self.research.catalog if self.research else [],
+                            "research_default": self.research.default if self.research else None,
                         }
                     )
                 )
@@ -543,8 +547,31 @@ class Handler(SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
+    def _research_api(self) -> None:
+        try:
+            if self.research is None:
+                raise BenchError("Local research models are unavailable.", 404)
+            self.bench.browser_origin(self.headers.get("Origin", ""), self.headers.get("Content-Type", ""))
+            if self.headers.get("Origin") != self.research.origin:
+                raise BenchError("The research models are available only on localhost.", 403)
+            body = self._json_body()
+            run = body.get("run")
+            if not isinstance(run, str) or len(run) > 64:
+                raise BenchError("Run a design first.")
+            self._send(json.dumps(self.research.score(body.get("model"), self.bench.snapshot(run)), allow_nan=False))
+        except BenchError as error:
+            self._send(json.dumps({"error": str(error)}), status=error.status)
+        except ValueError as error:
+            self._send(json.dumps({"error": str(error)}), status=400)
+        except Exception:
+            logging.exception("Local research model request failed")
+            self._send('{"error":"The local model could not run. Check the local server log."}', status=503)
+
     def do_POST(self) -> None:
         path = urlsplit(self.path).path
+        if path == "/api/research/score":
+            self._research_api()
+            return
         if path.startswith("/api/bench/"):
             self._bench_api(path.removeprefix("/api/bench/"), post=True)
             return
@@ -588,6 +615,7 @@ def main() -> None:
     parser.add_argument("--no-warm", action="store_true")
     parser.add_argument("--policy", type=Path, help="Trusted ASO policy directory")
     parser.add_argument("--atlas-efficacy", type=Path, help="Verified Atlas model JSON")
+    parser.add_argument("--research-config", type=Path, help="Local research runtime paths")
     parser.add_argument("--bench-dir", type=Path, help="Private workspace and access key directory")
     parser.add_argument("--bench-origin", action="append", default=[], help="Allowed workspace origin")
     parser.add_argument("--train-policy", type=Path, metavar="OUTPUT")
@@ -612,9 +640,17 @@ def main() -> None:
             Handler.atlas_model = PortableEfficacy(atlas_path)
         except (OSError, ValueError) as error:
             parser.error(str(error))
+    if args.research_config:
+        origin = f"http://127.0.0.1:{args.port}"
+        if args.host != "127.0.0.1" or not args.bench_dir or args.bench_origin != [origin]:
+            parser.error("Research serving requires its own loopback-only Bench and browser origin.")
+        try:
+            Handler.research = Research(args.research_config, origin)
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
     if args.bench_dir:
         try:
-            Handler.bench = Bench(args.bench_dir, args.bench_origin)
+            Handler.bench = Bench(args.bench_dir, args.bench_origin, Handler.research)
         except (OSError, ValueError) as error:
             parser.error(str(error))
     if not args.no_warm:

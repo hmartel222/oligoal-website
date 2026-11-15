@@ -7,6 +7,7 @@ let currentRun;
 let exportRequest;
 let results;
 let resultParams;
+let researchModels = [];
 
 function node(tag, text) {
   const element = document.createElement(tag);
@@ -68,7 +69,12 @@ async function run(event) {
   }
 }
 
-function render() {
+function render(preserveSelection = false) {
+  const body = $("results-body");
+  const previous = preserveSelection && body.querySelector("tr.active")?.rowIndex - 1;
+  const previousChecks = preserveSelection && new Set(
+    [...body.querySelectorAll(".bench-check:checked")].map((checkbox) => checkbox.value)
+  );
   const { transcript, summary, rows, endpoints } = results;
   const columns = Object.entries(endpoints).filter(([, spec]) => spec.status === "scored");
   const methods = {
@@ -86,10 +92,12 @@ function render() {
   $("coverage").textContent = rows.length
     ? `Showing ${rows.length} of ${summary.ranked_count.toLocaleString()} ranked candidates. Coordinates are 1-based on this transcript.`
     : "No candidates qualified for this run.";
+  $("research-form").hidden = !researchModels.length || results.chemistry !== "ps_moe_20_gapmer";
+  $("research-status").textContent = results.localModel || "";
   $("download").disabled = !rows.length;
   $("download-full").disabled = !rows.length;
   $("send-bench").hidden = !results.bench_run;
-  $("send-bench").disabled = !rows.length;
+  $("send-bench").disabled = !rows.length || (preserveSelection && !previousChecks.size);
   const headings = node("tr");
   if (results.bench_run) headings.append(node("th", "Send"));
   headings.append(...["Rank", "ASO 5′–3′", "Site"].map((label) => node("th", label)));
@@ -98,6 +106,7 @@ function render() {
     header.append(node("span", spec.units));
     headings.append(header);
   }
+  if (results.localScores) headings.append(node("th", "Local % inhibition"));
   $("results-head").replaceChildren(headings);
   const fragment = document.createDocumentFragment();
   rows.forEach((row, index) => {
@@ -115,7 +124,7 @@ function render() {
       checked.type = "checkbox";
       checked.className = "bench-check";
       checked.value = row.candidate_id;
-      checked.checked = true;
+      checked.checked = !previousChecks || previousChecks.has(row.candidate_id);
       checked.setAttribute("aria-label", `Send candidate ${index + 1} to Bench`);
       cell.addEventListener("click", (event) => event.stopPropagation());
       checked.addEventListener("change", () => {
@@ -126,6 +135,7 @@ function render() {
     }
     tr.append(node("td", String(index + 1)), sequence, node("td", site(row)));
     tr.append(...columns.map(([key]) => node("td", formatted(row.predictions[key]))));
+    if (results.localScores) tr.append(node("td", formatted(results.localScores[row.candidate_id])));
     tr.addEventListener("click", () => {
       select(index);
       if (window.matchMedia("(max-width: 780px)").matches) {
@@ -136,7 +146,7 @@ function render() {
   });
   $("results-body").replaceChildren(fragment);
   $("workspace").hidden = false;
-  if (rows.length) select(0);
+  if (rows.length) select(Number.isInteger(previous) && previous >= 0 ? previous : 0);
 }
 
 async function select(index) {
@@ -168,6 +178,12 @@ async function select(index) {
       }
     }
     definition.append(node("dt", spec.title), reading);
+    values.append(definition);
+  }
+  if (results.localScores) {
+    const definition = node("div");
+    definition.className = "endpoint";
+    definition.append(node("dt", results.localModel), node("dd", `${formatted(results.localScores[row.candidate_id])} % inhibition`));
     values.append(definition);
   }
   $("predictions").replaceChildren(values);
@@ -230,6 +246,31 @@ $("send-bench").addEventListener("click", () => {
   }
 });
 
+$("research-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const run = results;
+  const control = event.submitter;
+  const model = $("research-model").value;
+  control.disabled = true;
+  $("research-status").textContent = "Running checkpoint locally…";
+  try {
+    const response = await fetch("/api/research/score", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({run: run.bench_run, model}),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+    if (results !== run) return;
+    run.localScores = data.scores;
+    run.localModel = researchModels.find((entry) => entry.id === model).label;
+    render(true);
+  } catch (error) {
+    if (results === run) $("research-status").textContent = error.message;
+  } finally {
+    control.disabled = false;
+  }
+});
+
 async function loadProfiles() {
   try {
     const response = await fetch("/api/meta", { cache: "no-store" });
@@ -237,6 +278,14 @@ async function loadProfiles() {
     const meta = await response.json();
     $("atlas-profile").disabled = !meta.atlas_efficacy_configured;
     $("open-bench").hidden = !meta.bench_configured;
+    researchModels = meta.research_models || [];
+    $("research-model").replaceChildren(...researchModels.map(({id, label}) => {
+      const option = node("option", label);
+      option.value = id;
+      return option;
+    }));
+    if (meta.research_default) $("research-model").value = meta.research_default;
+    if (results) render();
   } catch {
     // The default profiles remain available while metadata is unreachable.
   }

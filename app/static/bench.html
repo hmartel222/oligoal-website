@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/bench.css">
   <link rel="stylesheet" href="/molecule.css">
-  <script type="module" src="/bench.js?v=4"></script>
+  <script type="module" src="/bench.js?v=5"></script>
 </head>
 <body>
   <header class="top">
@@ -39,6 +39,12 @@
       <div class="project-tools">
         <label>Project<select id="projects"></select></label>
         <form id="recommend-form">
+          <label id="strategy-field" hidden>Recommendation method
+            <select id="bench-strategy">
+              <option value="adaptive">Adaptive ranking</option>
+              <option value="ppo">Research PPO · one at a time</option>
+            </select>
+          </label>
           <label>Batch size<input id="batch-size" type="number" min="1" max="20" value="5" required></label>
           <button class="primary" type="submit">Generate new batch</button>
         </form>

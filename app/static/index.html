@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#0c2f34">
   <link rel="stylesheet" href="styles.css?v=4">
   <link rel="stylesheet" href="/molecule.css">
-  <script type="module" src="app.js?v=4"></script>
+  <script type="module" src="app.js?v=5"></script>
 </head>
 <body>
   <header class="top">
@@ -60,6 +60,11 @@
           </div>
         </div>
         <p id="method" class="method"></p>
+        <form id="research-form" class="research-form" hidden>
+          <label>Local Atlas checkpoint<select id="research-model"></select></label>
+          <button type="submit" class="secondary">Score shortlist</button>
+          <p id="research-status" role="status"></p>
+        </form>
         <div class="table-scroll">
           <table aria-label="Ranked ASO candidates">
             <thead id="results-head"></thead>

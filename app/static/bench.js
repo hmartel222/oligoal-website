@@ -19,6 +19,7 @@ const methods = {
   atlas_prior: "Atlas prior ranking",
   bayesian_atlas_v1: "Measurement-updated Atlas ranking",
   design_rank: "Design ranking",
+  research_ppo: "Research PPO",
 };
 let state;
 let selectedId;
@@ -143,7 +144,9 @@ function render(keepSelection = false) {
   $("rename-form").hidden = true;
   const evidence = batch.evidence;
   const adapted = evidence.compatible_observations?.length || 0;
-  $("batch-context").textContent = `${methods[evidence.method]} · ${batch.candidates.length} candidates · ${adapted} measurements used for adaptation`;
+  $("batch-context").textContent = evidence.expert
+    ? `Research PPO · ${evidence.expert} expert · ${adapted} measured candidates in policy state`
+    : `${methods[evidence.method]} · ${batch.candidates.length} candidates · ${adapted} measurements used for adaptation`;
   $("project-context").textContent = [
     transcript.gene, transcript.transcript_id, profiles[project.chemistry],
     assay && `${assay.cell_line}, ${assay.transfection_method}, ${assay.dosage_nm.toLocaleString()} nM, ${assay.treatment_period_hrs} h`,
@@ -296,6 +299,7 @@ submit("login-form", async () => {
 submit("recommend-form", async () => {
   const result = await api("recommend", {
     project: state.project.id, count: $("batch-size").valueAsNumber, request: crypto.randomUUID(),
+    strategy: $("bench-strategy").value,
   });
   route(result.project, result.batch);
   await load();
@@ -363,4 +367,12 @@ $("candidate-structure").addEventListener("toggle", () => {
     $("bench-molecule").clear();
   }
 });
+$("bench-strategy").addEventListener("change", () => {
+  const policy = $("bench-strategy").value === "ppo";
+  $("batch-size").value = policy ? 1 : 5;
+  $("batch-size").readOnly = policy;
+});
+fetch("/api/meta").then((response) => response.json()).then((meta) => {
+  $("strategy-field").hidden = !meta.research_models?.length;
+}).catch(() => {});
 load();

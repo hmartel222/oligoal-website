@@ -199,7 +199,8 @@ def adapted_scores(candidates: dict, records: list[dict]) -> tuple[dict, list]:
 
 
 class Bench:
-    def __init__(self, directory: Path, origins: list[str]):
+    def __init__(self, directory: Path, origins: list[str], research=None):
+        self.research = research
         self.directory = directory
         self.origins = frozenset(origins)
         secret = directory / "access-key"
@@ -237,6 +238,13 @@ class Bench:
                 self.drafts.popitem(last=False)
             self.drafts[key] = (monotonic() + DRAFT_AGE, snapshot)
         return key
+
+    def snapshot(self, run: str) -> dict:
+        with self.lock:
+            saved = self.drafts.get(run)
+        if not saved or saved[0] < monotonic():
+            raise BenchError("The design run expired. Run the design again and resend it.", 410)
+        return saved[1]
 
     def browser_origin(self, origin: str, content_type: str) -> None:
         if origin not in self.origins or content_type.split(";")[0].strip() != "application/json":
@@ -286,7 +294,7 @@ class Bench:
     @staticmethod
     def measurements(conn, key: str) -> list[dict]:
         rows = conn.execute("""
-            SELECT m.id, m.candidate, r.revision, r.payload, r.created
+            SELECT m.id, m.candidate, m.created AS recorded, r.revision, r.payload, r.created
             FROM measurement m JOIN result r ON r.measurement=m.id
             WHERE m.project=? AND r.revision=(
                 SELECT max(revision) FROM result WHERE measurement=m.id
@@ -295,7 +303,7 @@ class Bench:
         """, (key,))
         return [
             {"id": row["id"], "candidate": row["candidate"], "revision": row["revision"],
-             "created": row["created"], "result": obj(row["payload"])}
+             "created": row["created"], "recorded": row["recorded"], "result": obj(row["payload"])}
             for row in rows
         ]
 
@@ -364,11 +372,7 @@ class Bench:
             previous = conn.execute("SELECT project, id FROM batch WHERE request=?", (request,)).fetchone()
             if previous:
                 return {"project": previous["project"], "batch": previous["id"]}
-            with self.lock:
-                saved = self.drafts.get(run)
-            if not saved or saved[0] < monotonic():
-                raise BenchError("The design run expired. Run the design again and resend it.", 410)
-            snapshot = saved[1]
+            snapshot = self.snapshot(run)
             chosen = set(ids)
             rows = [
                 {**row, "design_rank": rank}
@@ -416,6 +420,37 @@ class Bench:
             raise BenchError("Every imported candidate has a result or is already proposed. Send more candidates from Design.")
         context = obj(project["context"])
         atlas = project["profile"] == CHEMISTRY and context["model_version"] == MODEL_SHA256
+        if body.get("strategy") == "ppo":
+            if self.research is None:
+                raise BenchError("The research PPO is available on localhost.")
+            if not atlas or count != 1 or project["budget"] != 50:
+                raise BenchError("PPO requires the Atlas 20-mer project, a 50-assay budget, and one candidate per proposal.")
+            if proposed:
+                raise BenchError("Record the pending results before requesting the next PPO proposal.")
+            # Keep one latest compatible measurement per candidate, in acquisition order.
+            observations = {row["candidate"]: row for row in reversed(current) if compatible(row["result"])}
+            if len(observations) < 10:
+                raise BenchError("PPO requires 10 distinct matching inhibition measurements to initialize its state.")
+            if len(observations) >= project["budget"]:
+                raise BenchError("The policy has reached its 50-observation horizon.")
+            training = sorted(observations.values(), key=lambda row: (row["recorded"], row["id"]))
+            output = self.research.request(
+                "ppo", list(pool.values()), context["assay"], budget=project["budget"],
+                unavailable=sorted(tried),
+                observed=[{"candidate": row["candidate"], "value": row["result"]["value"]} for row in training],
+            )
+            selected = {**pool[output["candidate_id"]], "bench_prediction": output["prediction"]}
+            evidence = {
+                "method": "research_ppo", "expert": output["expert"],
+                "model_version": output["model_version"],
+                "source_model_version": output["source_model_version"],
+                "observations": [{"id": row["id"], "revision": row["revision"]} for row in current],
+                "compatible_observations": [{"id": row["id"], "revision": row["revision"]} for row in training],
+                "notes_revision": self.notes(conn, key)["revision"],
+                "budget": project["budget"], "spent_before": spent, "proposed_before": 0,
+            }
+            return self.insert_batch(conn, key, request, [selected], evidence)
+
         means, training = adapted_scores(pool, current) if atlas else ({}, [])
         if atlas:
             available.sort(key=lambda row: (-means[row["candidate_id"]], row["candidate_id"]))
